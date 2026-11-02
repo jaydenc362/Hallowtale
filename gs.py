@@ -1,4 +1,5 @@
 import pygame
+import assets
 from objects import player
 from objects import door
 from objects import camera
@@ -15,12 +16,12 @@ class gs():
 
 class menu_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font(None, 100)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "\pause",
             "Hallowtale",
             "By Jayden Chan",
-            "\n",
+            "",
             "Press [enter]",
         ]
         self.log_time = 1
@@ -45,7 +46,7 @@ class menu_gs(gs):
         for i in range(self.log_index + 1):
             if self.log[i] == "\pause":
                 continue
-            elif self.log[i] == "\n":
+            elif self.log[i] == "":
                 self.log_timer = 1
             text_surface = self.font.render(self.log[i], True, self.log_color)
             text_position = (self.log_offset, self.log_offset + self.font.get_height() * j)
@@ -57,21 +58,6 @@ class entrance_gs(gs):
         self.player = player()
         self.door = door()
         self.camera = camera(self.player)
-        self.entering = False
-        self.entering_time = 1
-        self.entering_timer = 0
-        self.flicker_time = 0.1
-        self.flicker_timer = 0
-        self.show_heart = False
-    def transition(self, dt):
-        if self.entering:
-            self.entering_timer += dt
-            self.flicker_timer += dt
-            if self.entering_timer >= self.entering_time:
-                return boss_gs()
-            if self.flicker_timer >= self.flicker_time:
-                self.flicker_timer = 0
-                self.show_heart = not self.show_heart
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -83,13 +69,28 @@ class entrance_gs(gs):
         self.camera.update()
         self.door.update(dt)
         if self.door.enter(self.player):
-            self.entering = True
-            self.player.speed = 0
-        return self.transition(dt)
+            return transition_gs()
     def draw(self, surface):
         surface.fill((0, 0, 0))
         self.door.draw(surface, self.camera)
-        self.player.draw(surface, self.camera, self.show_heart)
+        self.player.draw(surface, self.camera)
+        
+class transition_gs(gs):
+    def __init__(self):
+        self.flicker_time = 0.1
+        self.flicker_timer = 0
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return menu_gs()
+        return self
+    def update(self, dt):
+        return boss_gs()
+    def draw(self, surface):
+        image = assets.images["heart"]
+        scaled_image = pygame.transform.scale(image, (30, 30))
+        surface.blit(scaled_image, (0, 0))
 
 class boss_gs(gs):
     def __init__(self):

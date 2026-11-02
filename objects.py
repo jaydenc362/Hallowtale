@@ -39,20 +39,14 @@ class player():
         elif move_down:
             self.position.y += self.speed * dt
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-    def draw(self, surface, camera, show_heart):
+    def draw(self, surface, camera):
         draw_position = camera.position_on_camera(self)
-        if show_heart:
-            image = assets.images["heart"]
-            scaled_image = pygame.transform.scale(image, (30, 30))
-            heart_offset = pygame.Vector2((self.width - 30) / 2, (self.height - 30) / 2)
-            surface.blit(scaled_image, draw_position + heart_offset)
-        else:
-            pygame.draw.rect(
-                surface, (255, 255, 0), (
-                    draw_position.x, draw_position.y,
-                    self.width, self.height
-                )
+        pygame.draw.rect(
+            surface, (255, 255, 0), (
+                draw_position.x, draw_position.y,
+                self.width, self.height
             )
+        )
 
 class door():
     def __init__(self):
@@ -62,8 +56,7 @@ class door():
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
     def enter(self, player):
         keys = pygame.key.get_pressed()
-        if self.rect.colliderect(player.rect) and keys[pygame.K_SPACE]:
-            return True
+        return self.rect.colliderect(player.rect) and keys[pygame.K_SPACE]
     def update(self, dt):
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
     def draw(self, surface, camera):
