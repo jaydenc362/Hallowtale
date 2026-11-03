@@ -112,6 +112,20 @@ class heart():
         if dy != 0:
             return (self.position.y - target.y) * dy >= 0
         return False
+    def move(self, dt, floor, dx, dy):
+        step = self.speed * dt
+        target = floor.tile_to_position(self.next_tile[0], self.next_tile[1]) + self.position_offset
+        distance = target - self.position
+        if dx != 0:
+            if abs(distance.x) <= step:
+                self.position.x = target.x
+            else:
+                self.position.x += dx * step
+        elif dy != 0:
+            if abs(distance.y) <= step:
+                self.position.y = target.y
+            else:
+                self.position.y += dy * step
     def update(self, dt, floor):
         keys = pygame.key.get_pressed()
         for direction, keys_to_check in self.directions:
@@ -130,8 +144,7 @@ class heart():
                 self.next_tile = self.current_tile
                 self.current_direction = None
         dx, dy = self.current_direction or (0, 0)
-        self.position.x += dx * self.speed * dt
-        self.position.y += dy * self.speed * dt
+        self.move(dt, floor, dx, dy)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
     def draw(self, surface):
         image = assets.images["heart"]

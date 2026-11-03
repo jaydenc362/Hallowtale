@@ -6,6 +6,9 @@ from objects import camera
 from objects import floor
 from objects import heart
 
+# Game state setup
+WIDTH, HEIGHT = 1280, 960
+
 class gs():
     def handle_events(self, events):
         pass
@@ -22,7 +25,7 @@ class menu_gs(gs):
             "Hallowtale",
             "By Jayden Chan",
             "",
-            "Press [enter]",
+            "Press [ Enter ]",
         ]
         self.log_time = 1
         self.log_timer = 0
@@ -77,20 +80,46 @@ class entrance_gs(gs):
         
 class transition_gs(gs):
     def __init__(self):
+        self.heart_width, self.heart_height = 30, 30
+        self.heart_speed = 2000
         self.flicker_time = 0.1
         self.flicker_timer = 0
+        self.flicker_count = 4
+        self.heart_offset = ((1280 / 20) - self.heart_width) / 2
+        self.heart_position = pygame.Vector2(
+            WIDTH / 2 - self.heart_width / 2 + self.heart_offset,
+            HEIGHT / 2 - self.heart_height / 2 + self.heart_offset
+        )
+        self.heart_target_position = pygame.Vector2(0, HEIGHT - self.heart_height)
+        self.finished = False
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return menu_gs()
         return self
+    def move_heart(self, dt):
+        distance = self.heart_target_position - self.heart_position
+        step = self.heart_speed * dt
+        if distance.length() <= step:
+            self.heart_position = pygame.Vector2(self.heart_target_position)
+            self.finished = True
+        else:
+            self.heart_position += distance.normalize() * step
     def update(self, dt):
-        return boss_gs()
+        self.flicker_timer += dt
+        if self.flicker_timer >= self.flicker_time:
+            self.flicker_timer = 0
+            self.flicker_count = max(0, self.flicker_count - 1)
+        if self.flicker_count <= 0:
+            self.move_heart(dt)
+        if self.finished:
+            return boss_gs()
     def draw(self, surface):
-        image = assets.images["heart"]
-        scaled_image = pygame.transform.scale(image, (30, 30))
-        surface.blit(scaled_image, (0, 0))
+        if self.flicker_count % 2 == 0:
+            image = assets.images["heart"]
+            scaled_image = pygame.transform.scale(image, (30, 30))
+            surface.blit(scaled_image, self.heart_position)
 
 class boss_gs(gs):
     def __init__(self):
