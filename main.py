@@ -1,6 +1,4 @@
-import pygame
-import gs
-import assets
+import pygame, gs, assets
 
 pygame.init()
 

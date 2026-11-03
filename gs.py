@@ -1,10 +1,5 @@
-import pygame
-import assets
-from objects import player
-from objects import door
-from objects import camera
-from objects import floor
-from objects import heart
+import pygame, assets
+from objects import player, door, camera, floor, heart, boss
 
 # Game state setup
 WIDTH, HEIGHT = 1280, 960
@@ -21,7 +16,7 @@ class menu_gs(gs):
     def __init__(self):
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
-            "\pause",
+            "/pause",
             "Hallowtale",
             "By Jayden Chan",
             "",
@@ -47,7 +42,7 @@ class menu_gs(gs):
         surface.fill((0, 0, 0))
         j = 0
         for i in range(self.log_index + 1):
-            if self.log[i] == "\pause":
+            if self.log[i] == "/pause":
                 continue
             elif self.log[i] == "":
                 self.log_timer = 1
@@ -69,6 +64,14 @@ class entrance_gs(gs):
         return self
     def update(self, dt):
         self.player.update(dt)
+        if self.player.position.y <= -340:
+            self.player.position.y = -340
+        elif self.player.position.y >= 100:
+            self.player.position.y = 100
+        if self.player.position.x <= -300:
+            self.player.position.x = -300
+        elif self.player.position.x >= 300:
+            self.player.position.x = 300
         self.camera.update()
         self.door.update(dt)
         if self.door.enter(self.player):
@@ -125,6 +128,7 @@ class boss_gs(gs):
     def __init__(self):
         self.floor = floor()
         self.heart = heart(self.floor)
+        self.boss = boss(self.floor, self.heart)
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -133,7 +137,9 @@ class boss_gs(gs):
         return self
     def update(self, dt):
         self.heart.update(dt, self.floor)
+        self.boss.update(dt, self.floor, self.heart)
     def draw(self, surface):
         surface.fill((30, 50, 40))
         self.floor.draw(surface)
         self.heart.draw(surface)
+        self.boss.draw(surface)

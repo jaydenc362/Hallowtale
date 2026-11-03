@@ -1,6 +1,4 @@
-import pygame
-import random
-import assets
+import pygame, random, heapq, assets
 
 # Object setup
 WIDTH, HEIGHT = 1280, 960
@@ -12,7 +10,7 @@ class camera():
     def attach(self, other):
         self.attached = other
     def position_on_camera(self, other):
-        return other.position + pygame.Vector2(WIDTH / 2, HEIGHT / 2) - self.position
+        return round(other.position + pygame.Vector2(WIDTH / 2, HEIGHT / 2) - self.position)
     def update(self):
         if self.attached is not None:
             self.position = self.attached.position + pygame.Vector2(self.attached.width / 2, self.attached.height / 2)
@@ -21,53 +19,58 @@ class camera():
 
 class player():
     def __init__(self):
-        self.width, self.height = 100, 100
+        self.width, self.height = 80, 120
         self.position = pygame.Vector2(0, 0)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.speed = 300
+        self.image = "player_front"
     def update(self, dt):
         keys = pygame.key.get_pressed()
         move_left = (keys[pygame.K_LEFT] or keys[pygame.K_a]) and not (keys[pygame.K_RIGHT] or keys[pygame.K_d])
         move_right = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) and not (keys[pygame.K_LEFT] or keys[pygame.K_a])
         move_up = (keys[pygame.K_UP] or keys[pygame.K_w]) and not (keys[pygame.K_DOWN] or keys[pygame.K_s])
         move_down = (keys[pygame.K_DOWN] or keys[pygame.K_s]) and not (keys[pygame.K_UP] or keys[pygame.K_w])
+        velocity = pygame.Vector2(0, 0)
         if move_left:
-            self.position.x -= self.speed * dt
+            velocity.x = -1
+            self.image = "player_left"
         elif move_right:
-            self.position.x += self.speed * dt
+            velocity.x = 1
+            self.image = "player_right"
         if move_up:
-            self.position.y -= self.speed * dt
+            velocity.y = -1
+            self.image = "player_back"
         elif move_down:
-            self.position.y += self.speed * dt
-        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+            velocity.y = 1
+            self.image = "player_front"
+        if velocity.length() > 0:
+            self.position += velocity.normalize() * self.speed * dt
+        self.rect.topleft = self.position
     def draw(self, surface, camera):
         draw_position = camera.position_on_camera(self)
-        pygame.draw.rect(
-            surface, (255, 255, 0), (
-                draw_position.x, draw_position.y,
-                self.width, self.height
-            )
-        )
+        image = assets.images[self.image]
+        scaled_image = pygame.transform.scale(image, (self.width, self.height))
+        surface.blit(scaled_image, draw_position)
 
 class door():
     def __init__(self):
-        self.position = pygame.Vector2(-25, -350)
-        self.width = 150
-        self.height = 300
+        self.position = pygame.Vector2(-140, -500)
+        self.width, self.height = 1083 / 3, 833 / 3
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.space_was_held = False
     def enter(self, player):
         keys = pygame.key.get_pressed()
-        return self.rect.colliderect(player.rect) and keys[pygame.K_SPACE]
+        space_held = keys[pygame.K_SPACE]
+        entered = self.rect.colliderect(player.rect) and space_held and not self.space_was_held
+        self.space_was_held = space_held
+        return entered
     def update(self, dt):
-        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.rect.topleft = self.position
     def draw(self, surface, camera):
         draw_position = camera.position_on_camera(self)
-        pygame.draw.rect(
-            surface, (155, 100, 0), (
-                draw_position.x, draw_position.y,
-                self.width, self.height
-            )
-        )
+        image = assets.images["door"]
+        scaled_image = pygame.transform.scale(image, (self.width, self.height))
+        surface.blit(scaled_image, draw_position)
 
 class floor():
     def __init__(self):
@@ -152,8 +155,98 @@ class heart():
                 self.current_direction = None
         dx, dy = self.current_direction or (0, 0)
         self.move(dt, floor, dx, dy)
-        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.rect.topleft = self.position
     def draw(self, surface):
         image = assets.images["heart"]
         scaled_image = pygame.transform.scale(image, (self.width, self.height))
         surface.blit(scaled_image, self.position)
+
+class boss():
+    def __init__(self, floor, heart):
+        self.width, self.height = 30, 30
+        self.position_offset = pygame.Vector2(
+            (floor.tile_width - self.width) / 2,
+            (floor.tile_height - self.height) / 2
+        )
+        self.position = floor.tile_to_position((19, 0)) + self.position_offset
+        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.speed = 400
+        self.current_tile = (19, 0)
+        self.target_tile = heart.current_tile
+        self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+        if self.path:
+            self.path.pop(0)
+        self.moving = False
+    def follow_path(self, dt, floor, heart):
+        # Update path
+        if not self.moving:
+            if not self.path or self.target_tile != heart.current_tile:
+                self.target_tile = heart.current_tile
+                self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+                if self.path:
+                    self.path.pop(0)
+        if not self.path:
+            return
+        # Follow
+        self.moving = True
+        step = self.speed * dt
+        next_tile = self.path[0]
+        target = floor.tile_to_position(next_tile) + self.position_offset
+        distance = target - self.position
+        if distance.length() <= step:
+            self.position = pygame.Vector2(target)
+            self.moving = False
+            self.path = astar_path(floor.grid, next_tile, heart.current_tile)
+            self.current_tile = next_tile
+            if self.path:
+                self.path.pop(0)
+        else:
+            self.position += distance.normalize() * step
+    def update(self, dt, floor, heart):
+        self.follow_path(dt, floor, heart)
+        self.rect.topleft = self.position
+    def draw(self, surface):
+        pygame.draw.rect(
+            surface, (255, 255, 0), (
+                self.position.x, self.position.y,
+                self.width, self.height
+            )
+        )
+
+# A* pathfinding
+def astar_path(grid, start, target):
+    if start == target:
+        return [start]
+    frontier = []
+    heapq.heappush(frontier, (0, start))
+    came_from = {start: None}
+    cost_so_far = {start: 0}
+    while frontier:
+        priority, current = heapq.heappop(frontier)
+        cx, cy = current
+        heuristic = abs(target[0] - cx) + abs(target[1] - cy)
+        if priority > cost_so_far[current] + heuristic:
+            continue
+        if current == target:
+            break
+        cx, cy = current
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            next_node = (cx + dx, cy + dy)
+            nx, ny = next_node
+            if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]):
+                new_cost = cost_so_far[current] + grid[nx][ny]
+                if next_node not in cost_so_far or new_cost < cost_so_far[next_node]:
+                    cost_so_far[next_node] = new_cost
+                    heuristic = abs(target[0] - nx) + abs(target[1] - ny)
+                    priority = new_cost + heuristic
+                    heapq.heappush(frontier, (priority, next_node))
+                    came_from[next_node] = current
+    if target not in came_from:
+        return []
+    path = []
+    curr = target
+    while curr is not None:
+        path.append(curr)
+        curr = came_from[curr]
+    path.reverse()
+    return path
