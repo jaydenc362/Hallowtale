@@ -1,4 +1,5 @@
 import pygame
+import random
 import assets
 
 # Object setup
@@ -71,29 +72,35 @@ class door():
 class floor():
     def __init__(self):
         self.dimensions = (20, 15)
-        self.grid = [[0] * self.dimensions[0]] * self.dimensions[1]
+        self.grid = [
+            [0 for y in range(self.dimensions[1])] for x in range(self.dimensions[0])
+        ]
+        for x in range(self.dimensions[0]):
+            for y in range(self.dimensions[1]):
+                self.grid[x][y] = random.randint(1, 3)
         self.tile_width = WIDTH / self.dimensions[0]
         self.tile_height = HEIGHT / self.dimensions[1]
-        self.color = (60, 60, 60)
-    def tile_to_position(self, x, y):
-        return pygame.Vector2(self.tile_width * x, self.tile_height * y)
-    def is_tile_outside_bounds(self, x, y):
-        return x >= self.dimensions[0] or x < 0 or y >= self.dimensions[1] or y < 0
+    def tile_to_position(self, xytuple):
+        return pygame.Vector2(self.tile_width * xytuple[0], self.tile_height * xytuple[1])
+    def is_tile_outside_bounds(self, xytuple):
+        return xytuple[0] >= self.dimensions[0] or xytuple[0] < 0 or xytuple[1] >= self.dimensions[1] or xytuple[1] < 0
     def draw(self, surface):
         for x in range(self.dimensions[0]):
             for y in range(self.dimensions[1]):
+                value = self.grid[x][y]
+                color = (round(60 * value), round(30 * value), 50)
                 pygame.draw.circle(
-                    surface, self.color, (
+                    surface, color, (
                         x * self.tile_width + self.tile_width / 2,
                         y * self.tile_height + self.tile_height / 2
-                    ), self.tile_width / 2 * 1.08
+                    ), self.tile_width / 2
                 )
 
 class heart():
     def __init__(self, floor):
         self.width, self.height = 30, 30
         self.position_offset = pygame.Vector2((floor.tile_width - self.width) / 2, (floor.tile_height - self.height) / 2)
-        self.position = floor.tile_to_position(0, 14) + self.position_offset
+        self.position = floor.tile_to_position((0, 14)) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.speed = 500
         self.current_direction, self.next_direction = None, None
@@ -105,7 +112,7 @@ class heart():
             ((0, 1), (pygame.K_DOWN, pygame.K_s)),
         ]
     def reached_next_tile(self, floor):
-        target = floor.tile_to_position(self.next_tile[0], self.next_tile[1]) + self.position_offset
+        target = floor.tile_to_position(self.next_tile) + self.position_offset
         dx, dy = self.current_direction or (0, 0)
         if dx != 0:
             return (self.position.x - target.x) * dx >= 0
@@ -114,7 +121,7 @@ class heart():
         return False
     def move(self, dt, floor, dx, dy):
         step = self.speed * dt
-        target = floor.tile_to_position(self.next_tile[0], self.next_tile[1]) + self.position_offset
+        target = floor.tile_to_position(self.next_tile) + self.position_offset
         distance = target - self.position
         if dx != 0:
             if abs(distance.x) <= step:
@@ -135,12 +142,12 @@ class heart():
                     self.current_direction = direction
                 break
         if self.reached_next_tile(floor):
-            self.position = floor.tile_to_position(self.next_tile[0], self.next_tile[1]) + self.position_offset
+            self.position = floor.tile_to_position(self.next_tile) + self.position_offset
             self.current_tile = self.next_tile
             self.current_direction = self.next_direction
             dx, dy = self.current_direction or (0, 0)
             self.next_tile = (self.current_tile[0] + dx, self.current_tile[1] + dy)
-            if floor.is_tile_outside_bounds(self.next_tile[0], self.next_tile[1]):
+            if floor.is_tile_outside_bounds(self.next_tile):
                 self.next_tile = self.current_tile
                 self.current_direction = None
         dx, dy = self.current_direction or (0, 0)
