@@ -138,8 +138,9 @@ class boss_gs(gs):
     def update(self, dt):
         self.heart.update(dt, self.floor)
         self.boss.update(dt, self.floor, self.heart)
+        self.floor.update(dt)
     def draw(self, surface):
-        surface.fill((30, 50, 40))
+        surface.fill((0, 0, 0))
         self.floor.draw(surface)
         self.heart.draw(surface)
         self.boss.draw(surface)

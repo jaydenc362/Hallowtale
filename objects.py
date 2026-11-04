@@ -1,4 +1,4 @@
-import pygame, random, heapq, assets
+import pygame, random, math, heapq, assets
 
 # Object setup
 WIDTH, HEIGHT = 1280, 960
@@ -83,21 +83,42 @@ class floor():
                 self.grid[x][y] = random.randint(1, 3)
         self.tile_width = WIDTH / self.dimensions[0]
         self.tile_height = HEIGHT / self.dimensions[1]
+        self.grid_tiles = [
+            [grid_tile(self.grid[x][y], x, y, self.tile_width, self.tile_height) for y in range(self.dimensions[1])] for x in range(self.dimensions[0])
+        ]
     def tile_to_position(self, xytuple):
         return pygame.Vector2(self.tile_width * xytuple[0], self.tile_height * xytuple[1])
     def is_tile_outside_bounds(self, xytuple):
         return xytuple[0] >= self.dimensions[0] or xytuple[0] < 0 or xytuple[1] >= self.dimensions[1] or xytuple[1] < 0
+    def update(self, dt):
+        for x in range(self.dimensions[0]):
+            for y in range(self.dimensions[1]):
+                self.grid_tiles[x][y].update(dt)
     def draw(self, surface):
         for x in range(self.dimensions[0]):
             for y in range(self.dimensions[1]):
-                value = self.grid[x][y]
-                color = (round(60 * value), round(30 * value), 50)
-                pygame.draw.circle(
-                    surface, color, (
-                        x * self.tile_width + self.tile_width / 2,
-                        y * self.tile_height + self.tile_height / 2
-                    ), self.tile_width / 2
-                )
+                self.grid_tiles[x][y].draw(surface)
+
+class grid_tile():
+    def __init__(self, value, x, y, tile_width, tile_height):
+        self.position = pygame.Vector2(x * tile_width, y * tile_height)
+        self.tile_width, self.tile_height = tile_width, tile_height
+        self.value = value
+        self.color = (round(60 * self.value), round(30 * self.value), 50)
+        self.timer = random.uniform(0, math.pi * 2)
+        self.sine = math.sin(self.timer)
+        self.cosine = math.cos(self.timer)
+    def update(self, dt):
+        self.timer += dt * 3
+        self.sine = math.sin(self.timer) * 5
+        self.cosine = math.cos(self.timer) * 5
+    def draw(self, surface):
+        pygame.draw.circle(
+            surface, self.color, (
+                self.position.x + self.tile_width / 2 + self.sine,
+                self.position.y + self.tile_height / 2 + self.cosine
+            ), self.tile_width / 2 * random.uniform(1.2, 1.3), random.randint(18, 20)
+        )
 
 class heart():
     def __init__(self, floor):
