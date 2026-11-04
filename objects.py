@@ -110,14 +110,14 @@ class grid_tile():
         self.cosine = math.cos(self.timer)
     def update(self, dt):
         self.timer += dt * 3
-        self.sine = math.sin(self.timer) * 5
-        self.cosine = math.cos(self.timer) * 5
+        self.sine = math.sin(self.timer)
+        self.cosine = math.cos(self.timer)
     def draw(self, surface):
         pygame.draw.circle(
             surface, self.color, (
-                self.position.x + self.tile_width / 2 + self.sine,
-                self.position.y + self.tile_height / 2 + self.cosine
-            ), self.tile_width / 2 * random.uniform(1.2, 1.3), random.randint(18, 20)
+                self.position.x + self.tile_width / 2 + self.sine * 5,
+                self.position.y + self.tile_height / 2 + self.cosine * 5
+            ), self.tile_width / 2 * 1.1 + self.sine * 3
         )
 
 class heart():
