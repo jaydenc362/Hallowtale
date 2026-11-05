@@ -84,12 +84,18 @@ class floor():
         self.tile_width = WIDTH / self.dimensions[0]
         self.tile_height = HEIGHT / self.dimensions[1]
         self.grid_tiles = [
-            [grid_tile(self.grid[x][y], x, y, self.tile_width, self.tile_height) for y in range(self.dimensions[1])] for x in range(self.dimensions[0])
+            [
+                grid_tile(
+                    self.grid[x][y], x, y, self.tile_width, self.tile_height
+                ) for y in range(self.dimensions[1])
+            ] for x in range(self.dimensions[0])
         ]
     def tile_to_position(self, xytuple):
         return pygame.Vector2(self.tile_width * xytuple[0], self.tile_height * xytuple[1])
     def is_tile_outside_bounds(self, xytuple):
         return xytuple[0] >= self.dimensions[0] or xytuple[0] < 0 or xytuple[1] >= self.dimensions[1] or xytuple[1] < 0
+    def tile_to_value(self, xytuple):
+        return self.grid[xytuple[0]][xytuple[1]]
     def update(self, dt):
         for x in range(self.dimensions[0]):
             for y in range(self.dimensions[1]):
@@ -104,14 +110,23 @@ class grid_tile():
         self.position = pygame.Vector2(x * tile_width, y * tile_height)
         self.tile_width, self.tile_height = tile_width, tile_height
         self.value = value
-        self.color = (round(60 * self.value), round(30 * self.value), 50)
-        self.timer = random.uniform(0, math.pi * 2)
+        self.color = (
+            round(60 * self.value),
+            round(30 * self.value),
+            50
+        )
+        self.timer = -x + y
         self.sine = math.sin(self.timer)
         self.cosine = math.cos(self.timer)
     def update(self, dt):
         self.timer += dt * 3
         self.sine = math.sin(self.timer)
         self.cosine = math.cos(self.timer)
+        self.color = (
+            round(60 * self.value + self.sine * 10),
+            round(30 * self.value + self.sine * 10),
+            round(50 + self.sine * 5)
+        )
     def draw(self, surface):
         pygame.draw.circle(
             surface, self.color, (
@@ -127,7 +142,7 @@ class heart():
         self.position = floor.tile_to_position((0, 14)) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.speed = 500
-        self.current_direction, self.next_direction = None, None
+        self.current_direction, self.next_direction, self.last_direction = None, None, None
         self.current_tile, self.next_tile = (0, 14), (0, 14)
         self.directions = [
             ((-1, 0), (pygame.K_LEFT, pygame.K_a)),
@@ -168,6 +183,7 @@ class heart():
         if self.reached_next_tile(floor):
             self.position = floor.tile_to_position(self.next_tile) + self.position_offset
             self.current_tile = self.next_tile
+            self.last_direction = self.current_direction
             self.current_direction = self.next_direction
             dx, dy = self.current_direction or (0, 0)
             self.next_tile = (self.current_tile[0] + dx, self.current_tile[1] + dy)
@@ -175,6 +191,7 @@ class heart():
                 self.next_tile = self.current_tile
                 self.current_direction = None
         dx, dy = self.current_direction or (0, 0)
+        self.speed = 500 / math.sqrt(floor.tile_to_value(self.current_tile))
         self.move(dt, floor, dx, dy)
         self.rect.topleft = self.position
     def draw(self, surface):
@@ -189,41 +206,42 @@ class boss():
             (floor.tile_width - self.width) / 2,
             (floor.tile_height - self.height) / 2
         )
-        self.position = floor.tile_to_position((19, 0)) + self.position_offset
+        self.current_tile = (19, 0)
+        self.target_tile = self.current_tile
+        self.position = floor.tile_to_position(self.current_tile) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.speed = 400
-        self.current_tile = (19, 0)
-        self.target_tile = heart.current_tile
+        self.moving = False
         self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
         if self.path:
             self.path.pop(0)
-        self.moving = False
+        self.markov = markov()
     def follow_path(self, dt, floor, heart):
         # Update path
-        if not self.moving:
-            if not self.path or self.target_tile != heart.current_tile:
-                self.target_tile = heart.current_tile
-                self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
-                if self.path:
-                    self.path.pop(0)
         if not self.path:
-            return
+            self.target_tile = self.markov.predict_heart_next_tile(heart, floor)
+            self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+            if self.path:
+                self.path.pop(0)
+            if not self.path:
+                return
         # Follow
-        self.moving = True
         step = self.speed * dt
         next_tile = self.path[0]
         target = floor.tile_to_position(next_tile) + self.position_offset
         distance = target - self.position
         if distance.length() <= step:
             self.position = pygame.Vector2(target)
-            self.moving = False
-            self.path = astar_path(floor.grid, next_tile, heart.current_tile)
             self.current_tile = next_tile
+            self.target_tile = self.markov.predict_heart_next_tile(heart, floor)
+            self.path = astar_path(floor.grid, next_tile, self.target_tile)
             if self.path:
                 self.path.pop(0)
         else:
             self.position += distance.normalize() * step
     def update(self, dt, floor, heart):
+        self.speed = 400 / math.sqrt(floor.tile_to_value(self.current_tile))
+        self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
     def draw(self, surface):
@@ -271,3 +289,48 @@ def astar_path(grid, start, target):
         curr = came_from[curr]
     path.reverse()
     return path
+
+class markov():
+    def __init__(self):
+        self.directions = [
+            (0, -1), # Up
+            (0, 1), # Down
+            (-1, 0), # Left
+            (1, 0), # Right
+        ]
+        self.heart_behavior = [
+            # To up, down, left, right
+            [0, 0, 0, 0], # From up
+            [0, 0, 0, 0], # From down
+            [0, 0, 0, 0], # From left
+            [0, 0, 0, 0], # From right
+        ]
+        self.last_observed_tile = None
+    def update_heart_behavior(self, heart):
+        if heart.last_direction is None:
+            return
+        if heart.current_direction is None:
+            return
+        if heart.current_tile == self.last_observed_tile:
+            return
+        previous_index = self.directions.index(heart.last_direction)
+        current_index = self.directions.index(heart.current_direction)
+        self.heart_behavior[previous_index][current_index] += 1
+        self.last_observed_tile = heart.current_tile
+    def predict_heart_next_tile(self, heart, floor):
+        if heart.current_direction == None:
+            return (19, 0)
+        row = self.heart_behavior[self.directions.index(heart.current_direction)]
+        if sum(row) == 0:
+            return (19, 0)
+        column_index = row.index(max(row))
+        predicted_direction = self.directions[column_index]
+        predicted_next_tile = (
+            heart.current_tile[0] + predicted_direction[0],
+            heart.current_tile[1] + predicted_direction[1]
+        )
+        if floor.is_tile_outside_bounds(predicted_next_tile):
+            return (19, 0)
+        return predicted_next_tile
+    def update(self, heart):
+        self.update_heart_behavior(heart)
