@@ -118,6 +118,13 @@ class grid_tile():
         self.timer = -x + y
         self.sine = math.sin(self.timer)
         self.cosine = math.cos(self.timer)
+    def draw_boss_target_highlight(self, surface):
+        pygame.draw.circle(
+            surface, (255, 255, 0), (
+                self.position.x + self.tile_width / 2 + self.sine * 5,
+                self.position.y + self.tile_height / 2 + self.cosine * 5
+            ), self.tile_width / 2 * 0.9 + self.sine * 3, 3
+        )
     def update(self, dt):
         self.timer += dt * 3
         self.sine = math.sin(self.timer)
@@ -199,59 +206,6 @@ class heart():
         scaled_image = pygame.transform.scale(image, (self.width, self.height))
         surface.blit(scaled_image, self.position)
 
-class boss():
-    def __init__(self, floor, heart):
-        self.width, self.height = 30, 30
-        self.position_offset = pygame.Vector2(
-            (floor.tile_width - self.width) / 2,
-            (floor.tile_height - self.height) / 2
-        )
-        self.current_tile = (19, 0)
-        self.target_tile = self.current_tile
-        self.position = floor.tile_to_position(self.current_tile) + self.position_offset
-        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-        self.speed = 400
-        self.moving = False
-        self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
-        if self.path:
-            self.path.pop(0)
-        self.markov = markov()
-    def follow_path(self, dt, floor, heart):
-        # Update path
-        if not self.path:
-            self.target_tile = self.markov.predict_heart_next_tile(heart, floor)
-            self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
-            if self.path:
-                self.path.pop(0)
-            if not self.path:
-                return
-        # Follow
-        step = self.speed * dt
-        next_tile = self.path[0]
-        target = floor.tile_to_position(next_tile) + self.position_offset
-        distance = target - self.position
-        if distance.length() <= step:
-            self.position = pygame.Vector2(target)
-            self.current_tile = next_tile
-            self.target_tile = self.markov.predict_heart_next_tile(heart, floor)
-            self.path = astar_path(floor.grid, next_tile, self.target_tile)
-            if self.path:
-                self.path.pop(0)
-        else:
-            self.position += distance.normalize() * step
-    def update(self, dt, floor, heart):
-        self.speed = 400 / math.sqrt(floor.tile_to_value(self.current_tile))
-        self.markov.update(heart)
-        self.follow_path(dt, floor, heart)
-        self.rect.topleft = self.position
-    def draw(self, surface):
-        pygame.draw.rect(
-            surface, (255, 255, 0), (
-                self.position.x, self.position.y,
-                self.width, self.height
-            )
-        )
-
 # A* pathfinding
 def astar_path(grid, start, target):
     if start == target:
@@ -290,6 +244,65 @@ def astar_path(grid, start, target):
     path.reverse()
     return path
 
+class boss():
+    def __init__(self, floor, heart):
+        self.width, self.height = 30, 30
+        self.position_offset = pygame.Vector2(
+            (floor.tile_width - self.width) / 2,
+            (floor.tile_height - self.height) / 2
+        )
+        self.current_tile = (19, 0)
+        self.target_tile = self.current_tile
+        self.position = floor.tile_to_position(self.current_tile) + self.position_offset
+        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.speed = 100
+        self.moving = False
+        self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+        if self.path:
+            self.path.pop(0)
+        self.markov = markov()
+    def follow_path(self, dt, floor, heart):
+        # Update path
+        if not self.path:
+            predicted_tile = self.markov.predict_heart_next_tile(heart, floor)
+            if predicted_tile is not None:
+                self.target_tile = predicted_tile
+            self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+            if self.path:
+                self.path.pop(0)
+            if not self.path:
+                return
+        # Follow
+        step = self.speed * dt
+        next_tile = self.path[0]
+        target = floor.tile_to_position(next_tile) + self.position_offset
+        distance = target - self.position
+        if distance.length() <= step:
+            self.position = pygame.Vector2(target)
+            self.current_tile = next_tile
+            predicted_tile = self.markov.predict_heart_next_tile(heart, floor)
+            if predicted_tile is not None:
+                self.target_tile = predicted_tile
+            self.path = astar_path(floor.grid, next_tile, self.target_tile)
+            if self.path:
+                self.path.pop(0)
+        else:
+            self.position += distance.normalize() * step
+    def update(self, dt, floor, heart):
+        self.speed = 100 / math.sqrt(floor.tile_to_value(self.current_tile))
+        self.markov.update(heart)
+        self.follow_path(dt, floor, heart)
+        self.rect.topleft = self.position
+    def draw(self, surface, floor):
+        pygame.draw.rect(
+            surface, (255, 255, 0), (
+                self.position.x, self.position.y,
+                self.width, self.height
+            )
+        )
+        target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
+        target_tile_grid_tile.draw_boss_target_highlight(surface)
+
 class markov():
     def __init__(self):
         self.directions = [
@@ -318,11 +331,14 @@ class markov():
         self.heart_behavior[previous_index][current_index] += 1
         self.last_observed_tile = heart.current_tile
     def predict_heart_next_tile(self, heart, floor):
-        if heart.current_direction == None:
-            return (19, 0)
-        row = self.heart_behavior[self.directions.index(heart.current_direction)]
+        direction = heart.current_direction
+        if direction is None:
+            direction = heart.last_direction
+            if direction is None:
+                return None
+        row = self.heart_behavior[self.directions.index(direction)]
         if sum(row) == 0:
-            return (19, 0)
+            return None
         column_index = row.index(max(row))
         predicted_direction = self.directions[column_index]
         predicted_next_tile = (
@@ -330,7 +346,7 @@ class markov():
             heart.current_tile[1] + predicted_direction[1]
         )
         if floor.is_tile_outside_bounds(predicted_next_tile):
-            return (19, 0)
+            return None
         return predicted_next_tile
     def update(self, heart):
         self.update_heart_behavior(heart)

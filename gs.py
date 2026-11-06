@@ -143,4 +143,4 @@ class boss_gs(gs):
         surface.fill((0, 0, 0))
         self.floor.draw(surface)
         self.heart.draw(surface)
-        self.boss.draw(surface)
+        self.boss.draw(surface, self.floor)
