@@ -255,7 +255,8 @@ class boss():
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-        self.speed = 100
+        self.base_speed = 300
+        self.speed = self.base_speed
         self.moving = False
         self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
         if self.path:
@@ -289,17 +290,19 @@ class boss():
         else:
             self.position += distance.normalize() * step
     def update(self, dt, floor, heart):
-        self.speed = 100 / math.sqrt(floor.tile_to_value(self.current_tile))
+        self.speed = self.base_speed / math.sqrt(floor.tile_to_value(self.current_tile))
         self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
     def draw(self, surface, floor):
-        pygame.draw.rect(
-            surface, (255, 255, 0), (
-                self.position.x, self.position.y,
-                self.width, self.height
-            )
-        )
+        # Boss
+        image = assets.images["boss"]
+        draw_width = self.width * 10
+        draw_height = self.height * 10
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height))
+        draw_position = self.position - pygame.Vector2(draw_width / 2, draw_height / 2)
+        surface.blit(scaled_image, draw_position)
+        # Target highlight
         target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
         target_tile_grid_tile.draw_boss_target_highlight(surface)
 

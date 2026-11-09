@@ -9,6 +9,7 @@ def load_assets():
     images["favicon"] = pygame.image.load("assets/images/favicon.png")
     images["door"] = pygame.image.load("assets/images/door.png")
     images["heart"] = pygame.image.load("assets/images/heart.png").convert_alpha()
+    images["boss"] = pygame.image.load("assets/images/boss.png").convert_alpha()
     images["player_front"] = pygame.image.load("assets/images/player_front.png").convert_alpha()
     images["player_back"] = pygame.image.load("assets/images/player_back.png").convert_alpha()
     images["player_left"] = pygame.image.load("assets/images/player_left.png").convert_alpha()
