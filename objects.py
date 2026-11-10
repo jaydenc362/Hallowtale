@@ -119,12 +119,13 @@ class grid_tile():
         self.sine = math.sin(self.timer)
         self.cosine = math.cos(self.timer)
     def draw_boss_target_highlight(self, surface):
-        pygame.draw.circle(
-            surface, (255, 255, 0), (
-                self.position.x + self.tile_width / 2 + self.sine * 5,
-                self.position.y + self.tile_height / 2 + self.cosine * 5
-            ), self.tile_width / 2 * 0.9 + self.sine * 3, 3
+        draw_rect_scale = 0.9
+        draw_rect = (
+            round(self.position.x + self.tile_width * ((1 - draw_rect_scale) / 2) + self.sine * 5),
+            round(self.position.y + self.tile_height * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
+            round(self.tile_width * draw_rect_scale), round(self.tile_height * draw_rect_scale)
         )
+        pygame.draw.rect(surface, (255, 255, 0), draw_rect, 3)
     def update(self, dt):
         self.timer += dt * 3
         self.sine = math.sin(self.timer)
@@ -135,12 +136,12 @@ class grid_tile():
             round(50 + self.sine * 5)
         )
     def draw(self, surface):
-        pygame.draw.circle(
-            surface, self.color, (
-                self.position.x + self.tile_width / 2 + self.sine * 5,
-                self.position.y + self.tile_height / 2 + self.cosine * 5
-            ), self.tile_width / 2 * 1.1 + self.sine * 3
+        draw_rect = (
+            round(self.position.x + self.sine * 5),
+            round(self.position.y + self.cosine * 5),
+            round(self.tile_width), round(self.tile_height)
         )
+        pygame.draw.rect(surface, self.color, draw_rect)
 
 class heart():
     def __init__(self, floor):
@@ -251,7 +252,7 @@ class boss():
             (floor.tile_width - self.width) / 2,
             (floor.tile_height - self.height) / 2
         )
-        self.current_tile = (19, 0)
+        self.current_tile = (17, 2)
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
@@ -295,16 +296,16 @@ class boss():
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
     def draw(self, surface, floor):
-        # Boss
-        image = assets.images["boss"]
-        draw_width = self.width * 10
-        draw_height = self.height * 10
-        scaled_image = pygame.transform.scale(image, (draw_width, draw_height))
-        draw_position = self.position - pygame.Vector2(draw_width / 2, draw_height / 2)
-        surface.blit(scaled_image, draw_position)
         # Target highlight
         target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
         target_tile_grid_tile.draw_boss_target_highlight(surface)
+        # Boss
+        image = assets.images["boss"]
+        draw_width = self.width * 587 / 60
+        draw_height = self.height * 425 / 60
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height))
+        draw_position = self.position - pygame.Vector2(draw_width / 2, draw_height / 2)
+        surface.blit(scaled_image, draw_position)
 
 class markov():
     def __init__(self):

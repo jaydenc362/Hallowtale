@@ -12,7 +12,7 @@ clock = pygame.time.Clock()
 
 # Game loop setup
 current_state = gs.menu_gs()
-
+ 
 # Game loop
 running = True
 while running:
