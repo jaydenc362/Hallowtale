@@ -4,7 +4,7 @@ from objects import player, door, camera, floor, heart, boss
 # Game state setup
 WIDTH, HEIGHT = 1280, 960
 
-class gs():
+class gs:
     def handle_events(self, events):
         pass
     def update(self, dt):
@@ -139,6 +139,8 @@ class boss_gs(gs):
         self.heart.update(dt, self.floor)
         self.boss.update(dt, self.floor, self.heart)
         self.floor.update(dt)
+        if self.heart.health <= 0:
+            return menu_gs()
     def draw(self, surface):
         surface.fill((60, 30, 50))
         self.floor.draw(surface)

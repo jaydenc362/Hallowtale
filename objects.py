@@ -3,7 +3,7 @@ import pygame, random, math, heapq, assets
 # Object setup
 WIDTH, HEIGHT = 1280, 960
 
-class camera():
+class camera:
     def __init__(self, attached = None):
         self.position = pygame.Vector2(0, 0)
         self.attached = attached
@@ -17,7 +17,7 @@ class camera():
         else:
             self.position = pygame.Vector2(0, 0)
 
-class player():
+class player:
     def __init__(self):
         self.width, self.height = 80, 120
         self.position = pygame.Vector2(0, 0)
@@ -52,7 +52,7 @@ class player():
         scaled_image = pygame.transform.scale(image, (self.width, self.height))
         surface.blit(scaled_image, draw_position)
 
-class door():
+class door:
     def __init__(self):
         self.position = pygame.Vector2(-140, -500)
         self.width, self.height = 1083 / 3, 833 / 3
@@ -72,7 +72,7 @@ class door():
         scaled_image = pygame.transform.scale(image, (self.width, self.height))
         surface.blit(scaled_image, draw_position)
 
-class floor():
+class floor:
     def __init__(self):
         self.dimensions = (20, 15)
         self.grid = [
@@ -105,7 +105,7 @@ class floor():
             for y in range(self.dimensions[1]):
                 self.grid_tiles[x][y].draw(surface)
 
-class grid_tile():
+class grid_tile:
     def __init__(self, value, x, y, tile_width, tile_height):
         self.position = pygame.Vector2(x * tile_width, y * tile_height)
         self.tile_width, self.tile_height = tile_width, tile_height
@@ -143,7 +143,7 @@ class grid_tile():
         )
         pygame.draw.rect(surface, self.color, draw_rect)
 
-class heart():
+class heart:
     def __init__(self, floor):
         self.width, self.height = 30, 30
         self.position_offset = pygame.Vector2((floor.tile_width - self.width) / 2, (floor.tile_height - self.height) / 2)
@@ -158,6 +158,10 @@ class heart():
             ((0, -1), (pygame.K_UP, pygame.K_w)),
             ((0, 1), (pygame.K_DOWN, pygame.K_s)),
         ]
+        self.health = 2
+        self.immune = False
+        self.immunity_time = 1
+        self.immunity_timer = 0
     def reached_next_tile(self, floor):
         target = floor.tile_to_position(self.next_tile) + self.position_offset
         dx, dy = self.current_direction or (0, 0)
@@ -245,7 +249,7 @@ def astar_path(grid, start, target):
     path.reverse()
     return path
 
-class boss():
+class boss:
     def __init__(self, floor, heart):
         self.width, self.height = 30, 30
         self.position_offset = pygame.Vector2(
@@ -263,6 +267,8 @@ class boss():
         if self.path:
             self.path.pop(0)
         self.markov = markov()
+        self.timer = 0
+        self.sine = math.sin(self.timer)
     def follow_path(self, dt, floor, heart):
         # Update path
         if not self.path:
@@ -290,11 +296,25 @@ class boss():
                 self.path.pop(0)
         else:
             self.position += distance.normalize() * step
+    def damage_player(self, dt, floor, heart):
+        if heart.immune:
+            heart.immunity_timer += dt
+        else:
+            if self.current_tile == heart.current_tile:
+                heart.immune = True
+                heart.health -= 1
+        if heart.immunity_timer > heart.immunity_time:
+            heart.immunity_timer = 0
+            heart.immune = False
+        print(heart.health)
     def update(self, dt, floor, heart):
+        self.timer += dt * 4
+        self.sine = math.sin(self.timer)
         self.speed = self.base_speed / math.sqrt(floor.tile_to_value(self.current_tile))
         self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
+        self.damage_player(dt, floor, heart)
     def draw(self, surface, floor):
         # Target highlight
         target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
@@ -303,11 +323,14 @@ class boss():
         image = assets.images["boss"]
         draw_width = self.width * 587 / 60
         draw_height = self.height * 425 / 60
-        scaled_image = pygame.transform.scale(image, (draw_width, draw_height))
-        draw_position = self.position - pygame.Vector2(draw_width / 2, draw_height / 2)
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 20))
+        draw_position = self.position - pygame.Vector2(
+            draw_width / 2,
+            round(draw_height / 2 + self.sine * 20))
         surface.blit(scaled_image, draw_position)
 
-class markov():
+class markov:
+    # SEE IF YOU CAN GET IT TO PREDICT THE PLAYER 3 STEPS AHEAD INSTEAD
     def __init__(self):
         self.directions = [
             (0, -1), # Up
