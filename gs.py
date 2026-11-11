@@ -146,3 +146,4 @@ class boss_gs(gs):
         self.floor.draw(surface)
         self.boss.draw(surface, self.floor)
         self.heart.draw(surface)
+        self.boss.markov.draw(surface)

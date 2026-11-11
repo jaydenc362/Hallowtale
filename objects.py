@@ -267,7 +267,7 @@ class boss:
         if self.path:
             self.path.pop(0)
         self.markov = markov_first_order()
-        self.n_moves_ahead = 5
+        self.n_moves_ahead = 3
         self.timer = 0
         self.sine = math.sin(self.timer)
     def follow_path(self, dt, floor, heart):
@@ -276,6 +276,10 @@ class boss:
             predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
             if predicted_tile is not None:
                 self.target_tile = predicted_tile
+                self.markov.record_prediction(
+                    predicted_tile,
+                    self.n_moves_ahead
+                )
             self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
             if self.path:
                 self.path.pop(0)
@@ -292,13 +296,16 @@ class boss:
             predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
             if predicted_tile is not None:
                 self.target_tile = predicted_tile
+                self.markov.record_prediction(
+                    predicted_tile,
+                    self.n_moves_ahead
+                )
             self.path = astar_path(floor.grid, next_tile, self.target_tile)
             if self.path:
                 self.path.pop(0)
         else:
             self.position += distance.normalize() * step
     def damage_player(self, dt, floor, heart):
-        print(heart.health)
         if heart.immune:
             heart.immunity_timer += dt
         else:
@@ -330,10 +337,10 @@ class boss:
         image = assets.images["boss"]
         draw_width = self.width * 587 / 60
         draw_height = self.height * 425 / 60
-        scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 20))
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 25))
         draw_position = self.position - pygame.Vector2(
             draw_width / 2,
-            round(draw_height / 2 + self.sine * 20))
+            round(draw_height / 2 + self.sine * 25))
         surface.blit(scaled_image, draw_position)
 
 class markov_first_order:
@@ -352,6 +359,14 @@ class markov_first_order:
             [0, 0, 0, 0], # From right
         ]
         self.last_observed_tile = None
+        # Stats
+        self.total_predictions = 0
+        self.correct_predictions = 0
+        self.accuracy = 0
+        self.pending_predictions = []
+        self.move_count = 0
+        self.last_prediction_move_count = None
+        self.last_accuracy_tile = None
     def update_heart_behavior(self, heart):
         if heart.last_direction is None:
             return
@@ -363,6 +378,31 @@ class markov_first_order:
         current_index = self.directions.index(heart.current_direction)
         self.heart_behavior[previous_index][current_index] += 1
         self.last_observed_tile = heart.current_tile
+    def record_prediction(self, predicted_tile, n):
+        if self.last_prediction_move_count == self.move_count:
+            return
+        self.pending_predictions.append([
+            predicted_tile,
+            self.move_count + n
+        ])
+        self.last_prediction_move_count = self.move_count
+    def update_accuracy(self, heart):
+        if self.last_accuracy_tile is None:
+            self.last_accuracy_tile = heart.current_tile
+            return
+        if heart.current_tile != self.last_accuracy_tile:
+            self.move_count += 1
+            self.last_accuracy_tile = heart.current_tile
+        for prediction in self.pending_predictions[:]:
+            predicted_tile = prediction[0]
+            target_move_count = prediction[1]
+            if self.move_count >= target_move_count:
+                self.total_predictions += 1
+                if predicted_tile == heart.current_tile:
+                    self.correct_predictions += 1
+                self.pending_predictions.remove(prediction)
+        if self.total_predictions > 0:
+            self.accuracy = self.correct_predictions / self.total_predictions
     def predict_heart_n_tiles_ahead(self, heart, floor, n):
         direction = heart.current_direction
         if direction is None:
@@ -402,3 +442,10 @@ class markov_first_order:
         return predicted_tile
     def update(self, heart):
         self.update_heart_behavior(heart)
+        self.update_accuracy(heart)
+    def draw(self, surface):
+        font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
+        text = "Markov Accuracy: " + str(round(self.accuracy * 100, 3)) + "%"
+        text_surface = font.render(text, True, (255, 255, 255))
+        text_position = (20, 20)
+        surface.blit(text_surface, text_position)
