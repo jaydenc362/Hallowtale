@@ -160,7 +160,7 @@ class heart:
         ]
         self.health = 2
         self.immune = False
-        self.immunity_time = 1
+        self.immunity_time = 2
         self.immunity_timer = 0
     def reached_next_tile(self, floor):
         target = floor.tile_to_position(self.next_tile) + self.position_offset
@@ -266,13 +266,14 @@ class boss:
         self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
         if self.path:
             self.path.pop(0)
-        self.markov = markov()
+        self.markov = markov_first_order()
+        self.n_moves_ahead = 5
         self.timer = 0
         self.sine = math.sin(self.timer)
     def follow_path(self, dt, floor, heart):
         # Update path
         if not self.path:
-            predicted_tile = self.markov.predict_heart_next_tile(heart, floor)
+            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
             if predicted_tile is not None:
                 self.target_tile = predicted_tile
             self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
@@ -288,7 +289,7 @@ class boss:
         if distance.length() <= step:
             self.position = pygame.Vector2(target)
             self.current_tile = next_tile
-            predicted_tile = self.markov.predict_heart_next_tile(heart, floor)
+            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
             if predicted_tile is not None:
                 self.target_tile = predicted_tile
             self.path = astar_path(floor.grid, next_tile, self.target_tile)
@@ -297,16 +298,22 @@ class boss:
         else:
             self.position += distance.normalize() * step
     def damage_player(self, dt, floor, heart):
+        print(heart.health)
         if heart.immune:
             heart.immunity_timer += dt
         else:
-            if self.current_tile == heart.current_tile:
-                heart.immune = True
-                heart.health -= 1
+            directions = [(0, 0), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+            for d in directions:
+                tile = (self.current_tile[0] + d[0], self.current_tile[1] + d[1])
+                if floor.is_tile_outside_bounds(tile):
+                    return
+                if heart.current_tile == tile:
+                    heart.immune = True
+                    heart.health -= 1
+                    break
         if heart.immunity_timer > heart.immunity_time:
             heart.immunity_timer = 0
             heart.immune = False
-        print(heart.health)
     def update(self, dt, floor, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
@@ -329,8 +336,7 @@ class boss:
             round(draw_height / 2 + self.sine * 20))
         surface.blit(scaled_image, draw_position)
 
-class markov:
-    # SEE IF YOU CAN GET IT TO PREDICT THE PLAYER 3 STEPS AHEAD INSTEAD
+class markov_first_order:
     def __init__(self):
         self.directions = [
             (0, -1), # Up
@@ -357,23 +363,42 @@ class markov:
         current_index = self.directions.index(heart.current_direction)
         self.heart_behavior[previous_index][current_index] += 1
         self.last_observed_tile = heart.current_tile
-    def predict_heart_next_tile(self, heart, floor):
+    def predict_heart_n_tiles_ahead(self, heart, floor, n):
         direction = heart.current_direction
         if direction is None:
             direction = heart.last_direction
             if direction is None:
                 return None
-        row = self.heart_behavior[self.directions.index(direction)]
-        if sum(row) == 0:
-            return None
-        column_index = row.index(max(row))
-        predicted_direction = self.directions[column_index]
-        predicted_next_tile = (
-            heart.current_tile[0] + predicted_direction[0],
-            heart.current_tile[1] + predicted_direction[1]
+        def find_path(direction, tile, steps):
+            if steps == 0:
+                return (1, tile)
+            row = self.heart_behavior[self.directions.index(direction)]
+            if sum(row) == 0:
+                return (0, tile)
+            best_probability = 0
+            best_tile = None
+            for i in range(4):
+                if row[i] == 0:
+                    continue
+                probability = row[i] / sum(row)
+                next_direction = self.directions[i]
+                next_tile = (
+                    tile[0] + next_direction[0],
+                    tile[1] + next_direction[1]
+                )
+                if floor.is_tile_outside_bounds(next_tile):
+                    continue
+                future_probability, future_tile = find_path(
+                    next_direction, next_tile, steps - 1
+                )
+                total_probability = probability * future_probability
+                if total_probability > best_probability:
+                    best_probability = total_probability
+                    best_tile = future_tile
+            return (best_probability, best_tile)
+        probability, predicted_tile = find_path(
+            direction, heart.current_tile, n
         )
-        if floor.is_tile_outside_bounds(predicted_next_tile):
-            return None
-        return predicted_next_tile
+        return predicted_tile
     def update(self, heart):
         self.update_heart_behavior(heart)
