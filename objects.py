@@ -260,6 +260,7 @@ class boss:
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile) + self.position_offset
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.health = 100
         self.base_speed = 300
         self.speed = self.base_speed
         self.moving = False
@@ -443,9 +444,3 @@ class markov_first_order:
     def update(self, heart):
         self.update_heart_behavior(heart)
         self.update_accuracy(heart)
-    def draw(self, surface):
-        font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
-        text = "Markov Accuracy: " + str(round(self.accuracy * 100, 3)) + "%"
-        text_surface = font.render(text, True, (255, 255, 255))
-        text_position = (20, 20)
-        surface.blit(text_surface, text_position)

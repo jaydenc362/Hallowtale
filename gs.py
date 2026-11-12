@@ -20,7 +20,7 @@ class menu_gs(gs):
             "Hallowtale",
             "By Jayden Chan",
             "",
-            "Press [ Enter ]",
+            "[ Enter ] >> Entrance",
         ]
         self.log_time = 1
         self.log_timer = 0
@@ -34,18 +34,24 @@ class menu_gs(gs):
                     return entrance_gs()
         return self
     def update(self, dt):
+        if self.log[self.log_index] == "/skip":
+            self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            return
         self.log_timer += dt
         if self.log_timer >= self.log_time:
             self.log_timer = 0
             self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            while self.log_index < len(self.log) - 1 and self.log[self.log_index] == "":
+                self.log_index += 1
     def draw(self, surface):
         surface.fill((0, 0, 0))
         j = 0
         for i in range(self.log_index + 1):
             if self.log[i] == "/pause":
                 continue
-            elif self.log[i] == "":
-                self.log_timer = 1
+            elif self.log[i] == "/skip":
+                j += 1
+                continue
             text_surface = self.font.render(self.log[i], True, self.log_color)
             text_position = (self.log_offset, self.log_offset + self.font.get_height() * j)
             surface.blit(text_surface, text_position)
@@ -129,6 +135,8 @@ class boss_gs(gs):
         self.floor = floor()
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, self.heart)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
+        self.log = []
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -140,10 +148,69 @@ class boss_gs(gs):
         self.boss.update(dt, self.floor, self.heart)
         self.floor.update(dt)
         if self.heart.health <= 0:
-            return menu_gs()
+            return death_gs()
+        self.log = [
+            "Player Health: " + str(self.heart.health),
+            "Boss Health: " + str(self.boss.health),
+            "Markov Accuracy: " + str(round(self.boss.markov.accuracy * 100, 3)) + "%",
+        ]
+        self.log_color = (255, 255, 255)
+        self.log_offset = 30
     def draw(self, surface):
         surface.fill((60, 30, 50))
         self.floor.draw(surface)
         self.boss.draw(surface, self.floor)
         self.heart.draw(surface)
-        self.boss.markov.draw(surface)
+        text_position = (20, 20)
+        for i in range(len(self.log)):
+            text_surface = self.font.render(self.log[i], True, self.log_color)
+            text_position = (self.log_offset, self.log_offset + self.font.get_height() * i)
+            surface.blit(text_surface, text_position)
+
+class death_gs(gs):
+    def __init__(self):
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
+        self.log = [
+            "/pause",
+            "You died...",
+            "Stay determined!",
+            "/skip",
+            "[ Enter ] >> Entrance",
+            "[ Esc ] >> Menu",
+        ]
+        self.log_time = 1
+        self.log_timer = 0
+        self.log_index = 0
+        self.log_offset = 30
+        self.log_color = (255, 255, 255)
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return entrance_gs()
+                elif event.key == pygame.K_ESCAPE:
+                    return menu_gs()
+        return self
+    def update(self, dt):
+        if self.log[self.log_index] == "/skip":
+            self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            return
+        self.log_timer += dt
+        if self.log_timer >= self.log_time:
+            self.log_timer = 0
+            self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            while self.log_index < len(self.log) - 1 and self.log[self.log_index] == "":
+                self.log_index += 1
+    def draw(self, surface):
+        surface.fill((0, 0, 0))
+        j = 0
+        for i in range(self.log_index + 1):
+            if self.log[i] == "/pause":
+                continue
+            elif self.log[i] == "/skip":
+                j += 1
+                continue
+            text_surface = self.font.render(self.log[i], True, self.log_color)
+            text_position = (self.log_offset, self.log_offset + self.font.get_height() * j)
+            surface.blit(text_surface, text_position)
+            j += 1
