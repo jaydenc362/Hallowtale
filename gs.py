@@ -173,10 +173,10 @@ class boss_gs(gs):
     def draw(self, surface):
         surface.fill((60, 30, 50))
         self.floor.draw(surface)
-        self.boss.draw(surface, self.floor, self.debug_mode)
-        self.heart.draw(surface)
         for item in self.items:
             item.draw(surface)
+        self.boss.draw(surface, self.floor, self.debug_mode)
+        self.heart.draw(surface)
         # Stats
         text_position = (20, 20)
         if self.debug_mode:
