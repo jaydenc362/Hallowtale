@@ -137,11 +137,14 @@ class boss_gs(gs):
         self.boss = boss(self.floor, self.heart)
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
         self.log = []
+        self.debug_mode = False
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return menu_gs()
+                elif event.key == pygame.K_F1 or event.key == pygame.K_TAB:
+                    self.debug_mode = not self.debug_mode
         return self
     def update(self, dt):
         self.heart.update(dt, self.floor)
@@ -152,6 +155,10 @@ class boss_gs(gs):
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
+        ]
+        self.debug_log = [
+            "Player Health: " + str(self.heart.health),
+            "Boss Health: " + str(self.boss.health),
             "Markov Accuracy: " + str(round(self.boss.markov.accuracy * 100, 3)) + "%",
         ]
         self.log_color = (255, 255, 255)
@@ -159,13 +166,20 @@ class boss_gs(gs):
     def draw(self, surface):
         surface.fill((60, 30, 50))
         self.floor.draw(surface)
-        self.boss.draw(surface, self.floor)
+        self.boss.draw(surface, self.floor, self.debug_mode)
         self.heart.draw(surface)
+        # Stats
         text_position = (20, 20)
-        for i in range(len(self.log)):
-            text_surface = self.font.render(self.log[i], True, self.log_color)
-            text_position = (self.log_offset, self.log_offset + self.font.get_height() * i)
-            surface.blit(text_surface, text_position)
+        if self.debug_mode:
+            for i in range(len(self.debug_log)):
+                text_surface = self.font.render(self.debug_log[i], True, self.log_color)
+                text_position = (self.log_offset, self.log_offset + self.font.get_height() * i)
+                surface.blit(text_surface, text_position)
+        else:
+            for i in range(len(self.log)):
+                text_surface = self.font.render(self.log[i], True, self.log_color)
+                text_position = (self.log_offset, self.log_offset + self.font.get_height() * i)
+                surface.blit(text_surface, text_position)
 
 class death_gs(gs):
     def __init__(self):

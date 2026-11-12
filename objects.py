@@ -268,7 +268,7 @@ class boss:
         if self.path:
             self.path.pop(0)
         self.markov = markov_first_order()
-        self.n_moves_ahead = 3
+        self.n_moves_ahead = 1
         self.timer = 0
         self.sine = math.sin(self.timer)
     def follow_path(self, dt, floor, heart):
@@ -326,14 +326,23 @@ class boss:
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
         self.speed = self.base_speed / math.sqrt(floor.tile_to_value(self.current_tile))
+        # FSM logic for each state
+        if self.health >= 70:
+            self.n_moves_ahead = 1
+        elif self.health >= 30:
+            self.n_moves_ahead = 2
+        else:
+            self.n_moves_ahead = 3
+        # FSM logic for all states
         self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
         self.damage_player(dt, floor, heart)
-    def draw(self, surface, floor):
+    def draw(self, surface, floor, debug_mode):
         # Target highlight
-        target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
-        target_tile_grid_tile.draw_boss_target_highlight(surface)
+        if debug_mode:
+            target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
+            target_tile_grid_tile.draw_boss_target_highlight(surface)
         # Boss
         image = assets.images["boss"]
         draw_width = self.width * 587 / 60
