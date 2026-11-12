@@ -86,7 +86,7 @@ class floor:
         self.grid_tiles = [
             [
                 grid_tile(
-                    self.grid[x][y], x, y, self.tile_width, self.tile_height
+                    self.grid[x][y], x, y, self
                 ) for y in range(self.dimensions[1])
             ] for x in range(self.dimensions[0])
         ]
@@ -106,9 +106,9 @@ class floor:
                 self.grid_tiles[x][y].draw(surface)
 
 class grid_tile:
-    def __init__(self, value, x, y, tile_width, tile_height):
-        self.position = pygame.Vector2(x * tile_width, y * tile_height)
-        self.tile_width, self.tile_height = tile_width, tile_height
+    def __init__(self, value, x, y, floor):
+        self.position = pygame.Vector2(x * floor.tile_width, y * floor.tile_height)
+        self.width, self.height = floor.tile_width, floor.tile_height
         self.value = value
         self.color = (
             round(60 * self.value),
@@ -121,9 +121,9 @@ class grid_tile:
     def draw_boss_target_highlight(self, surface):
         draw_rect_scale = 0.9
         draw_rect = (
-            round(self.position.x + self.tile_width * ((1 - draw_rect_scale) / 2) + self.sine * 5),
-            round(self.position.y + self.tile_height * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
-            round(self.tile_width * draw_rect_scale), round(self.tile_height * draw_rect_scale)
+            round(self.position.x + self.width * ((1 - draw_rect_scale) / 2) + self.sine * 5),
+            round(self.position.y + self.height * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
+            round(self.width * draw_rect_scale), round(self.height * draw_rect_scale)
         )
         pygame.draw.rect(surface, (255, 255, 0), draw_rect, 3)
     def update(self, dt):
@@ -139,7 +139,7 @@ class grid_tile:
         draw_rect = (
             round(self.position.x + self.sine * 5),
             round(self.position.y + self.cosine * 5),
-            round(self.tile_width), round(self.tile_height)
+            round(self.width), round(self.height)
         )
         pygame.draw.rect(surface, self.color, draw_rect)
 
@@ -453,3 +453,37 @@ class markov_first_order:
     def update(self, heart):
         self.update_heart_behavior(heart)
         self.update_accuracy(heart)
+
+class item:
+    item_list = []
+    def __init__(self, x, y, tile_width, tile_height):
+        self.position = pygame.Vector2(x * tile_width, y * tile_height)
+        self.tile = (x, y)
+        self.width, self.height = tile_width, tile_height
+        self.timer = 0
+        self.sine = math.sin(self.timer)
+        self.types = [
+            "heal_player",
+            "damage_boss",
+            "damage_boss_big",
+            "damage_player",
+            "damage_player_big",
+        ]
+        self.type_weights = [4, 7, 1, 4, 1]
+        self.type_colors = [(255, 0, 0), (255, 255, 0), (0, 255, 0), (0, 255, 255), (0, 0, 255)]
+        self.type = random.choices(self.types, self.type_weights)[0]
+    def get_collected(self, heart):
+        if heart.current_tile == self.tile:
+            self.item_list.remove(self)
+    def update(self, dt, heart):
+        self.timer += dt * 2
+        self.sine = math.sin(self.timer)
+        self.get_collected(heart)
+    def draw(self, surface):
+        color = self.type_colors[self.types.index(self.type)]
+        draw_rect = (
+            self.position.x,
+            round(self.position.y + self.sine * 5),
+            self.width, self.height
+        )
+        pygame.draw.rect(surface, color, draw_rect)

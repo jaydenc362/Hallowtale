@@ -1,5 +1,5 @@
-import pygame, assets
-from objects import player, door, camera, floor, heart, boss
+import pygame, assets, random
+from objects import player, door, camera, floor, heart, boss, item
 
 # Game state setup
 WIDTH, HEIGHT = 1280, 960
@@ -135,6 +135,11 @@ class boss_gs(gs):
         self.floor = floor()
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, self.heart)
+        self.items = item.item_list
+        for _ in range(20):
+            x = random.randint(0, self.floor.dimensions[0] - 1)
+            y = random.randint(0, self.floor.dimensions[1] - 1)
+            self.items.append(item(x, y, self.floor.tile_width, self.floor.tile_height))
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
         self.log = []
         self.debug_mode = False
@@ -152,6 +157,8 @@ class boss_gs(gs):
         self.floor.update(dt)
         if self.heart.health <= 0:
             return death_gs()
+        for item in self.items:
+            item.update(dt, self.heart)
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -168,6 +175,8 @@ class boss_gs(gs):
         self.floor.draw(surface)
         self.boss.draw(surface, self.floor, self.debug_mode)
         self.heart.draw(surface)
+        for item in self.items:
+            item.draw(surface)
         # Stats
         text_position = (20, 20)
         if self.debug_mode:
