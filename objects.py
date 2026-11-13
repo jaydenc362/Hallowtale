@@ -121,8 +121,8 @@ class grid_tile:
     def draw_boss_target_highlight(self, surface):
         draw_rect_scale = 0.9
         draw_rect = (
-            round(self.position.x + self.width * ((1 - draw_rect_scale) / 2) + self.sine * 5),
-            round(self.position.y + self.height * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
+            round(self.position.x + self.width * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
+            round(self.position.y + self.height * ((1 - draw_rect_scale) / 2) + self.sine * 5),
             round(self.width * draw_rect_scale), round(self.height * draw_rect_scale)
         )
         pygame.draw.rect(surface, (255, 255, 0), draw_rect, 3)
@@ -137,8 +137,8 @@ class grid_tile:
         )
     def draw(self, surface):
         draw_rect = (
-            round(self.position.x + self.sine * 5),
-            round(self.position.y + self.cosine * 5),
+            round(self.position.x + self.cosine * 5),
+            round(self.position.y + self.sine * 5),
             round(self.width), round(self.height)
         )
         pygame.draw.rect(surface, self.color, draw_rect)
@@ -460,8 +460,9 @@ class item:
         self.position = pygame.Vector2(x * tile_width, y * tile_height)
         self.tile = (x, y)
         self.width, self.height = tile_width, tile_height
-        self.timer = 0
+        self.timer = -x + y
         self.sine = math.sin(self.timer)
+        self.cosine = math.sin(self.timer)
         self.types = [
             "heal_player",
             "damage_boss",
@@ -470,20 +471,36 @@ class item:
             "damage_player_big",
         ]
         self.type_weights = [4, 7, 1, 4, 1]
-        self.type_colors = [(255, 0, 0), (255, 255, 0), (0, 255, 0), (0, 255, 255), (0, 0, 255)]
         self.type = random.choices(self.types, self.type_weights)[0]
-    def get_collected(self, heart):
+    def get_collected(self, heart, boss):
         if heart.current_tile == self.tile:
             self.item_list.remove(self)
-    def update(self, dt, heart):
-        self.timer += dt * 2
+            if self.type == "heal_player":
+                heart.health += 1
+            elif self.type == "damage_boss":
+                boss.health = max(0, boss.health - 3)
+            elif self.type == "damage_boss_big":
+                boss.health = max(0, boss.health - 10)
+            elif self.type == "damage_player":
+                heart.health = max(0, heart.health - 1)
+            elif self.type == "damage_player_big":
+                heart.health = max(0, heart.health - 3)
+    def update(self, dt, heart, boss):
+        self.timer += dt * 3
         self.sine = math.sin(self.timer)
-        self.get_collected(heart)
+        self.cosine = math.cos(self.timer)
+        self.get_collected(heart, boss)
     def draw(self, surface):
-        color = self.type_colors[self.types.index(self.type)]
-        draw_rect = (
-            self.position.x,
-            round(self.position.y + self.sine * 5),
-            self.width, self.height
-        )
-        pygame.draw.rect(surface, color, draw_rect)
+        image = assets.images[self.type]
+        scaled_image = pygame.transform.scale(image, (self.width, self.height))
+        if self.type == "damage_player" or self.type == "damage_player_big":
+            draw_position = pygame.Vector2(
+                round(self.position.x + self.cosine * 5),
+                round(self.position.y + self.sine * 5)
+            )
+        else:
+            draw_position = pygame.Vector2(
+                round(self.position.x),
+                round(self.position.y + self.sine * 10)
+            )
+        surface.blit(scaled_image, draw_position)

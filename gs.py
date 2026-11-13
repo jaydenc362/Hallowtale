@@ -136,6 +136,7 @@ class boss_gs(gs):
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, self.heart)
         self.items = item.item_list
+        item.item_list.clear()
         for _ in range(20):
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
@@ -157,8 +158,15 @@ class boss_gs(gs):
         self.floor.update(dt)
         if self.heart.health <= 0:
             return death_gs()
-        for item in self.items:
-            item.update(dt, self.heart)
+        if self.boss.health <= 0:
+            return boss_death_gs()
+        n_items = len(self.items)
+        for i in self.items:
+            i.update(dt, self.heart, self.boss)
+        if len(self.items) < n_items:
+            x = random.randint(0, self.floor.dimensions[0] - 1)
+            y = random.randint(0, self.floor.dimensions[1] - 1)
+            self.items.append(item(x, y, self.floor.tile_width, self.floor.tile_height))
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -212,6 +220,72 @@ class death_gs(gs):
                 if event.key == pygame.K_RETURN:
                     return entrance_gs()
                 elif event.key == pygame.K_ESCAPE:
+                    return menu_gs()
+        return self
+    def update(self, dt):
+        if self.log[self.log_index] == "/skip":
+            self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            return
+        self.log_timer += dt
+        if self.log_timer >= self.log_time:
+            self.log_timer = 0
+            self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            while self.log_index < len(self.log) - 1 and self.log[self.log_index] == "":
+                self.log_index += 1
+    def draw(self, surface):
+        surface.fill((0, 0, 0))
+        j = 0
+        for i in range(self.log_index + 1):
+            if self.log[i] == "/pause":
+                continue
+            elif self.log[i] == "/skip":
+                j += 1
+                continue
+            text_surface = self.font.render(self.log[i], True, self.log_color)
+            text_position = (self.log_offset, self.log_offset + self.font.get_height() * j)
+            surface.blit(text_surface, text_position)
+            j += 1
+
+class boss_death_gs(gs):
+    def __init__(self):
+        self.timer = 0
+        self.time = 3
+        self.image = "boss"
+        self.position = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
+    def update(self, dt):
+        self.timer += dt
+        if self.timer >= self.time:
+            return victory_gs()
+        if self.timer >= 1.5:
+            self.image = "boss_dead"
+        elif self.timer >= 1:
+            self.image = "boss_slashed"
+    def draw(self, surface):
+        image = assets.images[self.image]
+        scaled_image = pygame.transform.scale(image, (587, 425))
+        draw_position = self.position - pygame.Vector2(
+            scaled_image.get_width() / 2,
+            scaled_image.get_height() / 2
+        )
+        surface.blit(scaled_image, draw_position)
+
+class victory_gs(gs):
+    def __init__(self):
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
+        self.log = [
+            "/pause",
+            "/skip", "/skip", "/skip", "/skip",
+            "         HALLOWTALE",
+        ]
+        self.log_time = 1
+        self.log_timer = 0
+        self.log_index = 0
+        self.log_offset = 30
+        self.log_color = (255, 255, 255)
+    def handle_events(self, events):
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
                     return menu_gs()
         return self
     def update(self, dt):
