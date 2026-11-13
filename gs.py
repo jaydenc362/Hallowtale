@@ -1,5 +1,5 @@
 import pygame, assets, random
-from objects import player, door, camera, floor, heart, boss, item
+from objects import player, door, camera, floor, heart, boss, mini_boss, item
 
 # Game state setup
 WIDTH, HEIGHT = 1280, 960
@@ -135,6 +135,7 @@ class boss_gs(gs):
         self.floor = floor()
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, self.heart)
+        self.mini_boss = mini_boss(self.floor, self.heart, 17, 4)
         self.items = item.item_list
         item.item_list.clear()
         for _ in range(20):
@@ -155,6 +156,7 @@ class boss_gs(gs):
     def update(self, dt):
         self.heart.update(dt, self.floor)
         self.boss.update(dt, self.floor, self.heart)
+        self.mini_boss.update(dt, self.floor, self.heart)
         self.floor.update(dt)
         if self.heart.health <= 0:
             return death_gs()
@@ -184,6 +186,7 @@ class boss_gs(gs):
         for item in self.items:
             item.draw(surface)
         self.boss.draw(surface, self.floor, self.debug_mode)
+        self.mini_boss.draw(surface, self.floor, self.debug_mode)
         self.heart.draw(surface)
         # Stats
         text_position = (20, 20)

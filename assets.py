@@ -12,6 +12,7 @@ def load_assets():
     images["boss"] = pygame.image.load("assets/images/boss.png").convert_alpha()
     images["boss_slashed"] = pygame.image.load("assets/images/boss_slashed.png").convert_alpha()
     images["boss_dead"] = pygame.image.load("assets/images/boss_dead.png").convert_alpha()
+    images["mini_boss"] = pygame.image.load("assets/images/mini_boss.png").convert_alpha()
     images["player_front"] = pygame.image.load("assets/images/player_front.png").convert_alpha()
     images["player_back"] = pygame.image.load("assets/images/player_back.png").convert_alpha()
     images["player_left"] = pygame.image.load("assets/images/player_left.png").convert_alpha()

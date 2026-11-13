@@ -118,14 +118,14 @@ class grid_tile:
         self.timer = -x + y
         self.sine = math.sin(self.timer)
         self.cosine = math.cos(self.timer)
-    def draw_boss_target_highlight(self, surface):
+    def draw_target_highlight(self, surface, color):
         draw_rect_scale = 0.9
         draw_rect = (
             round(self.position.x + self.width * ((1 - draw_rect_scale) / 2) + self.cosine * 5),
             round(self.position.y + self.height * ((1 - draw_rect_scale) / 2) + self.sine * 5),
             round(self.width * draw_rect_scale), round(self.height * draw_rect_scale)
         )
-        pygame.draw.rect(surface, (255, 255, 0), draw_rect, 3)
+        pygame.draw.rect(surface, color, draw_rect, 3)
     def update(self, dt):
         self.timer += dt * 3
         self.sine = math.sin(self.timer)
@@ -159,9 +159,6 @@ class heart:
             ((0, 1), (pygame.K_DOWN, pygame.K_s)),
         ]
         self.health = 2
-        self.immune = False
-        self.immunity_time = 2
-        self.immunity_timer = 0
     def reached_next_tile(self, floor):
         target = floor.tile_to_position(self.next_tile) + self.position_offset
         dx, dy = self.current_direction or (0, 0)
@@ -249,16 +246,13 @@ def astar_path(grid, start, target):
     path.reverse()
     return path
 
+# BUG: WHEN THE BOSS IS ONE SQUARE AWAY, AND NEITHER HEART OR BOSS MOVES, THE BOSS SHOULD STILL DAMAGE THE PLAYER AFTER IMMUNITY IS GONE
 class boss:
     def __init__(self, floor, heart):
-        self.width, self.height = 30, 30
-        self.position_offset = pygame.Vector2(
-            (floor.tile_width - self.width) / 2,
-            (floor.tile_height - self.height) / 2
-        )
+        self.width, self.height = floor.tile_width, floor.tile_height
         self.current_tile = (17, 2)
         self.target_tile = self.current_tile
-        self.position = floor.tile_to_position(self.current_tile) + self.position_offset
+        self.position = floor.tile_to_position(self.current_tile)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.health = 100
         self.base_speed = 300
@@ -271,6 +265,9 @@ class boss:
         self.n_moves_ahead = 1
         self.timer = 0
         self.sine = math.sin(self.timer)
+        self.on_cooldown = False
+        self.cooldown_time = 2
+        self.cooldown_timer = 0
     def follow_path(self, dt, floor, heart):
         # Update path
         if not self.path:
@@ -289,7 +286,7 @@ class boss:
         # Follow
         step = self.speed * dt
         next_tile = self.path[0]
-        target = floor.tile_to_position(next_tile) + self.position_offset
+        target = floor.tile_to_position(next_tile)
         distance = target - self.position
         if distance.length() <= step:
             self.position = pygame.Vector2(target)
@@ -307,8 +304,8 @@ class boss:
         else:
             self.position += distance.normalize() * step
     def damage_player(self, dt, floor, heart):
-        if heart.immune:
-            heart.immunity_timer += dt
+        if self.on_cooldown:
+            self.cooldown_timer += dt
         else:
             directions = [(0, 0), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
             for d in directions:
@@ -316,12 +313,12 @@ class boss:
                 if floor.is_tile_outside_bounds(tile):
                     return
                 if heart.current_tile == tile:
-                    heart.immune = True
+                    self.on_cooldown = True
                     heart.health -= 1
                     break
-        if heart.immunity_timer > heart.immunity_time:
-            heart.immunity_timer = 0
-            heart.immune = False
+        if self.cooldown_timer > self.cooldown_time:
+            self.cooldown_timer = 0
+            self.on_cooldown = False
     def update(self, dt, floor, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
@@ -342,15 +339,112 @@ class boss:
         # Target highlight
         if debug_mode:
             target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
-            target_tile_grid_tile.draw_boss_target_highlight(surface)
+            target_tile_grid_tile.draw_target_highlight(surface, (255, 255, 0))
         # Boss
         image = assets.images["boss"]
-        draw_width = self.width * 587 / 60
-        draw_height = self.height * 425 / 60
+        draw_width = self.width * 587 / 400
+        draw_height = self.height * 425 / 400
         scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 25))
         draw_position = self.position - pygame.Vector2(
-            draw_width / 2,
-            round(draw_height / 2 + self.sine * 25))
+            (draw_width - self.width) / 2,
+            (draw_height - self.height) / 2 + round(self.sine * 25))
+        surface.blit(scaled_image, draw_position)
+
+class mini_boss:
+    def __init__(self, floor, heart, x, y):
+        self.width, self.height = floor.tile_width, floor.tile_height
+        self.current_tile = (x, y)
+        self.target_tile = self.current_tile
+        self.position = floor.tile_to_position(self.current_tile)
+        self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.health = 100
+        self.base_speed = 300
+        self.speed = self.base_speed
+        self.moving = False
+        self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+        if self.path:
+            self.path.pop(0)
+        self.markov = markov_first_order()
+        self.n_moves_ahead = 1
+        self.timer = 0
+        self.sine = math.sin(self.timer)
+        self.on_cooldown = False
+        self.cooldown_time = 2
+        self.cooldown_timer = 0
+    def follow_path(self, dt, floor, heart):
+        # Update path
+        if not self.path:
+            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
+            if predicted_tile is not None:
+                self.target_tile = predicted_tile
+                self.markov.record_prediction(
+                    predicted_tile,
+                    self.n_moves_ahead
+                )
+            self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
+            if self.path:
+                self.path.pop(0)
+            if not self.path:
+                return
+        # Follow
+        step = self.speed * dt
+        next_tile = self.path[0]
+        target = floor.tile_to_position(next_tile)
+        distance = target - self.position
+        if distance.length() <= step:
+            self.position = pygame.Vector2(target)
+            self.current_tile = next_tile
+            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
+            if predicted_tile is not None:
+                self.target_tile = predicted_tile
+                self.markov.record_prediction(
+                    predicted_tile,
+                    self.n_moves_ahead
+                )
+            self.path = astar_path(floor.grid, next_tile, self.target_tile)
+            if self.path:
+                self.path.pop(0)
+        else:
+            self.position += distance.normalize() * step
+    def damage_player(self, dt, floor, heart):
+        if self.on_cooldown:
+            self.cooldown_timer += dt
+        else:
+            if heart.current_tile == self.current_tile:
+                self.on_cooldown = True
+                heart.health -= 1
+        if self.cooldown_timer > self.cooldown_time:
+            self.cooldown_timer = 0
+            self.on_cooldown = False
+    def update(self, dt, floor, heart):
+        self.timer += dt * 4
+        self.sine = math.sin(self.timer)
+        self.speed = self.base_speed / math.sqrt(floor.tile_to_value(self.current_tile))
+        # FSM logic for each state
+        if self.health >= 70:
+            self.n_moves_ahead = 3
+        elif self.health >= 30:
+            self.n_moves_ahead = 2
+        else:
+            self.n_moves_ahead = 1
+        # FSM logic for all states
+        self.markov.update(heart)
+        self.follow_path(dt, floor, heart)
+        self.rect.topleft = self.position
+        self.damage_player(dt, floor, heart)
+    def draw(self, surface, floor, debug_mode):
+        # Target highlight
+        if debug_mode:
+            target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
+            target_tile_grid_tile.draw_target_highlight(surface, (255, 100, 0))
+        # Boss
+        image = assets.images["mini_boss"]
+        draw_width = self.width * 518 / 400
+        draw_height = self.height * 482 / 400
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 25))
+        draw_position = self.position - pygame.Vector2(
+            (draw_width - self.width) / 2,
+            (draw_height - self.height) / 2 + round(self.sine * 25))
         surface.blit(scaled_image, draw_position)
 
 class markov_first_order:
