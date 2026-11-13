@@ -214,6 +214,7 @@ class death_gs(gs):
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        assets.sounds["death"].play()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
