@@ -234,8 +234,10 @@ class death_gs(gs):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
+                    pygame.mixer.stop()
                     return entrance_gs()
                 elif event.key == pygame.K_ESCAPE:
+                    pygame.mixer.stop()
                     return menu_gs()
         return self
     def update(self, dt):

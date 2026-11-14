@@ -258,6 +258,7 @@ class boss:
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.color = (255, 255, 0)
         self.health = 100
         self.base_speed = 300
         self.speed = self.base_speed
@@ -339,11 +340,28 @@ class boss:
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
         self.damage_player(dt, floor, heart)
+    def draw_path(self, surface, floor):
+        path_copy = self.path.copy()
+        if len(self.path) > 2:
+            path_copy.pop(0)
+            path_copy.pop()
+        for tile in path_copy:
+            position = floor.tile_to_position(tile)
+            tile_grid_tile = floor.grid_tiles[tile[0]][tile[1]]
+            offset = pygame.Vector2(
+                tile_grid_tile.cosine * 5,
+                tile_grid_tile.sine * 5)
+            center = (
+                round(position.x + floor.tile_width / 2 + offset.x),
+                round(position.y + floor.tile_height / 2 + offset.y)
+            )
+            pygame.draw.circle(surface, self.color, center, floor.tile_width * 0.2, 1)
     def draw(self, surface, floor, debug_mode):
-        # Target highlight
+        # Target highlight and path
         if debug_mode:
             target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
-            target_tile_grid_tile.draw_target_highlight(surface, (255, 255, 0))
+            target_tile_grid_tile.draw_target_highlight(surface, self.color)
+            self.draw_path(surface, floor)
         # Boss
         image = assets.images["boss"]
         draw_width = self.width * 587 / 425 * 3
@@ -437,11 +455,28 @@ class mini_boss:
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
         self.damage_player(dt, heart)
+    def draw_path(self, surface, floor):
+        path_copy = self.path.copy()
+        if len(self.path) > 2:
+            path_copy.pop(0)
+            path_copy.pop()
+        for tile in path_copy:
+            position = floor.tile_to_position(tile)
+            tile_grid_tile = floor.grid_tiles[tile[0]][tile[1]]
+            offset = pygame.Vector2(
+                tile_grid_tile.cosine * 5,
+                tile_grid_tile.sine * 5)
+            center = (
+                round(position.x + floor.tile_width / 2 + offset.x),
+                round(position.y + floor.tile_height / 2 + offset.y)
+            )
+            pygame.draw.circle(surface, self.color, center, floor.tile_width * 0.1, 1)
     def draw(self, surface, floor, debug_mode):
-        # Target highlight
+        # Target highlight and path
         if debug_mode:
             target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
             target_tile_grid_tile.draw_target_highlight(surface, self.color)
+            self.draw_path(surface, floor)
         # Boss
         image = assets.images["mini_boss"]
         draw_width = self.width * 518 / 482
