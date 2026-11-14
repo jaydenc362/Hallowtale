@@ -79,7 +79,7 @@ class entrance_gs(gs):
         elif self.player.position.x >= 300:
             self.player.position.x = 300
         self.camera.update()
-        self.door.update(dt)
+        self.door.update()
         if self.door.enter(self.player):
             return transition_gs()
     def draw(self, surface):
@@ -134,16 +134,25 @@ class boss_gs(gs):
     def __init__(self):
         self.floor = floor()
         self.heart = heart(self.floor)
-        self.boss = boss(self.floor, self.heart)
-        self.mini_boss = mini_boss(self.floor, self.heart, 17, 4)
+        self.boss = boss(self.floor, (17, 2))
+        self.mini_bosses = [
+            mini_boss(self.floor, (17, 4)),
+            mini_boss(self.floor, (17, 5)),
+            mini_boss(self.floor, (17, 6)),
+        ]
         self.items = item.item_list
         item.item_list.clear()
         for _ in range(20):
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(x, y, self.floor.tile_width, self.floor.tile_height))
+            self.items.append(item(self.floor, x, y))
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
-        self.log = []
+        self.log = [
+            "Player Health: " + str(self.heart.health),
+            "Boss Health: " + str(self.boss.health),
+        ]
+        self.log_color = (255, 255, 255)
+        self.log_offset = 30
         self.debug_mode = False
     def handle_events(self, events):
         for event in events:
@@ -156,19 +165,16 @@ class boss_gs(gs):
     def update(self, dt):
         self.heart.update(dt, self.floor)
         self.boss.update(dt, self.floor, self.heart)
-        self.mini_boss.update(dt, self.floor, self.heart)
+        for m in self.mini_bosses:
+            m.update(dt, self.floor, self.heart)
         self.floor.update(dt)
-        if self.heart.health <= 0:
-            return death_gs()
-        if self.boss.health <= 0:
-            return boss_death_gs()
         n_items = len(self.items)
-        for i in self.items:
+        for i in self.items[:]:
             i.update(dt, self.heart, self.boss)
         if len(self.items) < n_items:
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(x, y, self.floor.tile_width, self.floor.tile_height))
+            self.items.append(item(self.floor, x, y))
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -176,17 +182,23 @@ class boss_gs(gs):
         self.debug_log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
-            "Markov Accuracy: " + str(round(self.boss.markov.accuracy * 100, 3)) + "%",
+            "Boss Markov Accuracy: " + self.boss.markov.format_accuracy(),
+            "Miniboss 1 Markov Accuracy: " + self.mini_bosses[0].markov.format_accuracy(),
+            "Miniboss 2 Markov Accuracy: " + self.mini_bosses[1].markov.format_accuracy(),
+            "Miniboss 3 Markov Accuracy: " + self.mini_bosses[2].markov.format_accuracy(),
         ]
-        self.log_color = (255, 255, 255)
-        self.log_offset = 30
+        if self.heart.health <= 0:
+            return death_gs()
+        if self.boss.health <= 0:
+            return boss_death_gs()
     def draw(self, surface):
         surface.fill((60, 30, 50))
         self.floor.draw(surface)
-        for item in self.items:
-            item.draw(surface)
+        for i in self.items[:]:
+            i.draw(surface)
+        for m in self.mini_bosses:
+                    m.draw(surface, self.floor, self.debug_mode)
         self.boss.draw(surface, self.floor, self.debug_mode)
-        self.mini_boss.draw(surface, self.floor, self.debug_mode)
         self.heart.draw(surface)
         # Stats
         text_position = (20, 20)

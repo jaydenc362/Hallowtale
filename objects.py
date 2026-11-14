@@ -64,7 +64,7 @@ class door:
         entered = self.rect.colliderect(player.rect) and space_held and not self.space_was_held
         self.space_was_held = space_held
         return entered
-    def update(self, dt):
+    def update(self):
         self.rect.topleft = self.position
     def draw(self, surface, camera):
         draw_position = camera.position_on_camera(self)
@@ -76,17 +76,14 @@ class floor:
     def __init__(self):
         self.dimensions = (20, 15)
         self.grid = [
-            [0 for y in range(self.dimensions[1])] for x in range(self.dimensions[0])
+            [random.randint(1, 3) for y in range(self.dimensions[1])] for x in range(self.dimensions[0])
         ]
-        for x in range(self.dimensions[0]):
-            for y in range(self.dimensions[1]):
-                self.grid[x][y] = random.randint(1, 3)
         self.tile_width = WIDTH / self.dimensions[0]
         self.tile_height = HEIGHT / self.dimensions[1]
         self.grid_tiles = [
             [
                 grid_tile(
-                    self.grid[x][y], x, y, self
+                    self, x, y
                 ) for y in range(self.dimensions[1])
             ] for x in range(self.dimensions[0])
         ]
@@ -106,10 +103,10 @@ class floor:
                 self.grid_tiles[x][y].draw(surface)
 
 class grid_tile:
-    def __init__(self, value, x, y, floor):
+    def __init__(self, floor, x, y):
         self.position = pygame.Vector2(x * floor.tile_width, y * floor.tile_height)
         self.width, self.height = floor.tile_width, floor.tile_height
-        self.value = value
+        self.value = floor.grid[x][y]
         self.color = (
             round(60 * self.value),
             round(30 * self.value),
@@ -145,9 +142,8 @@ class grid_tile:
 
 class heart:
     def __init__(self, floor):
-        self.width, self.height = 30, 30
-        self.position_offset = pygame.Vector2((floor.tile_width - self.width) / 2, (floor.tile_height - self.height) / 2)
-        self.position = floor.tile_to_position((0, 14)) + self.position_offset
+        self.width, self.height = floor.tile_width, floor.tile_height
+        self.position = floor.tile_to_position((0, 14))
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.speed = 500
         self.current_direction, self.next_direction, self.last_direction = None, None, None
@@ -158,9 +154,9 @@ class heart:
             ((0, -1), (pygame.K_UP, pygame.K_w)),
             ((0, 1), (pygame.K_DOWN, pygame.K_s)),
         ]
-        self.health = 2
+        self.health = 3
     def reached_next_tile(self, floor):
-        target = floor.tile_to_position(self.next_tile) + self.position_offset
+        target = floor.tile_to_position(self.next_tile)
         dx, dy = self.current_direction or (0, 0)
         if dx != 0:
             return (self.position.x - target.x) * dx >= 0
@@ -169,7 +165,7 @@ class heart:
         return False
     def move(self, dt, floor, dx, dy):
         step = self.speed * dt
-        target = floor.tile_to_position(self.next_tile) + self.position_offset
+        target = floor.tile_to_position(self.next_tile)
         distance = target - self.position
         if dx != 0:
             if abs(distance.x) <= step:
@@ -190,7 +186,7 @@ class heart:
                     self.current_direction = direction
                 break
         if self.reached_next_tile(floor):
-            self.position = floor.tile_to_position(self.next_tile) + self.position_offset
+            self.position = floor.tile_to_position(self.next_tile)
             self.current_tile = self.next_tile
             self.last_direction = self.current_direction
             self.current_direction = self.next_direction
@@ -205,8 +201,13 @@ class heart:
         self.rect.topleft = self.position
     def draw(self, surface):
         image = assets.images["heart"]
-        scaled_image = pygame.transform.scale(image, (self.width, self.height))
-        surface.blit(scaled_image, self.position)
+        draw_width, draw_height = 30, 30
+        scaled_image = pygame.transform.scale(image, (draw_width, draw_height))
+        draw_position = self.position + pygame.Vector2(
+            (self.width - draw_width) / 2,
+            (self.height - draw_height) / 2,
+        )
+        surface.blit(scaled_image, draw_position)
 
 # A* pathfinding
 def astar_path(grid, start, target):
@@ -246,11 +247,10 @@ def astar_path(grid, start, target):
     path.reverse()
     return path
 
-# BUG: WHEN THE BOSS IS ONE SQUARE AWAY, AND NEITHER HEART OR BOSS MOVES, THE BOSS SHOULD STILL DAMAGE THE PLAYER AFTER IMMUNITY IS GONE
 class boss:
-    def __init__(self, floor, heart):
+    def __init__(self, floor, xytuple):
         self.width, self.height = floor.tile_width, floor.tile_height
-        self.current_tile = (17, 2)
+        self.current_tile = xytuple
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
@@ -306,19 +306,19 @@ class boss:
     def damage_player(self, dt, floor, heart):
         if self.on_cooldown:
             self.cooldown_timer += dt
-        else:
-            directions = [(0, 0), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
-            for d in directions:
-                tile = (self.current_tile[0] + d[0], self.current_tile[1] + d[1])
-                if floor.is_tile_outside_bounds(tile):
-                    return
-                if heart.current_tile == tile:
-                    self.on_cooldown = True
-                    heart.health -= 1
-                    break
-        if self.cooldown_timer > self.cooldown_time:
+            if self.cooldown_timer < self.cooldown_time:
+                return
             self.cooldown_timer = 0
             self.on_cooldown = False
+        directions = [(0, 0), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+        for dx, dy in directions:
+            tile = (self.current_tile[0] + dx, self.current_tile[1] + dy)
+            if floor.is_tile_outside_bounds(tile):
+                continue
+            if heart.current_tile == tile:
+                self.on_cooldown = True
+                heart.health -= 1
+                break
     def update(self, dt, floor, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
@@ -342,8 +342,8 @@ class boss:
             target_tile_grid_tile.draw_target_highlight(surface, (255, 255, 0))
         # Boss
         image = assets.images["boss"]
-        draw_width = self.width * 587 / 400
-        draw_height = self.height * 425 / 400
+        draw_width = self.width * 587 / 425 * 3
+        draw_height = self.height * 3
         scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 25))
         draw_position = self.position - pygame.Vector2(
             (draw_width - self.width) / 2,
@@ -351,14 +351,14 @@ class boss:
         surface.blit(scaled_image, draw_position)
 
 class mini_boss:
-    def __init__(self, floor, heart, x, y):
+    def __init__(self, floor, xytuple):
         self.width, self.height = floor.tile_width, floor.tile_height
-        self.current_tile = (x, y)
+        self.current_tile = xytuple
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
         self.health = 100
-        self.base_speed = 300
+        self.base_speed = 200
         self.speed = self.base_speed
         self.moving = False
         self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
@@ -406,16 +406,16 @@ class mini_boss:
                 self.path.pop(0)
         else:
             self.position += distance.normalize() * step
-    def damage_player(self, dt, floor, heart):
+    def damage_player(self, dt, heart):
         if self.on_cooldown:
             self.cooldown_timer += dt
-        else:
-            if heart.current_tile == self.current_tile:
-                self.on_cooldown = True
-                heart.health -= 1
-        if self.cooldown_timer > self.cooldown_time:
+            if self.cooldown_timer < self.cooldown_time:
+                return
             self.cooldown_timer = 0
             self.on_cooldown = False
+        if heart.current_tile == self.current_tile:
+            self.on_cooldown = True
+            heart.health -= 1
     def update(self, dt, floor, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
@@ -431,16 +431,16 @@ class mini_boss:
         self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
-        self.damage_player(dt, floor, heart)
+        self.damage_player(dt, heart)
     def draw(self, surface, floor, debug_mode):
         # Target highlight
         if debug_mode:
             target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
-            target_tile_grid_tile.draw_target_highlight(surface, (255, 100, 0))
+            target_tile_grid_tile.draw_target_highlight(surface, (255, 255, 255))
         # Boss
         image = assets.images["mini_boss"]
-        draw_width = self.width * 518 / 400
-        draw_height = self.height * 482 / 400
+        draw_width = self.width * 518 / 482
+        draw_height = self.height
         scaled_image = pygame.transform.scale(image, (draw_width, draw_height + self.sine * 25))
         draw_position = self.position - pygame.Vector2(
             (draw_width - self.width) / 2,
@@ -507,6 +507,8 @@ class markov_first_order:
                 self.pending_predictions.remove(prediction)
         if self.total_predictions > 0:
             self.accuracy = self.correct_predictions / self.total_predictions
+    def format_accuracy(self):
+        return str(round(self.accuracy * 100, 3)) + "%"
     def predict_heart_n_tiles_ahead(self, heart, floor, n):
         direction = heart.current_direction
         if direction is None:
@@ -550,13 +552,10 @@ class markov_first_order:
 
 class item:
     item_list = []
-    def __init__(self, x, y, tile_width, tile_height):
-        self.position = pygame.Vector2(x * tile_width, y * tile_height)
+    def __init__(self, floor, x, y):
+        self.position = pygame.Vector2(x * floor.tile_width, y * floor.tile_height)
         self.tile = (x, y)
-        self.width, self.height = tile_width, tile_height
-        self.timer = -x + y
-        self.sine = math.sin(self.timer)
-        self.cosine = math.sin(self.timer)
+        self.width, self.height = floor.tile_width, floor.tile_height
         self.types = [
             "heal_player",
             "damage_boss",
@@ -566,6 +565,9 @@ class item:
         ]
         self.type_weights = [4, 7, 1, 4, 1]
         self.type = random.choices(self.types, self.type_weights)[0]
+        self.timer = floor.grid_tiles[self.tile[0]][self.tile[1]].timer
+        self.sine = math.sin(self.timer)
+        self.cosine = math.cos(self.timer)
     def get_collected(self, heart, boss):
         if heart.current_tile == self.tile:
             self.item_list.remove(self)
