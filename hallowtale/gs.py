@@ -14,7 +14,7 @@ class gs:
 
 class menu_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "Hallowtale",
@@ -146,7 +146,7 @@ class boss_gs(gs):
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
             self.items.append(item(self.floor, (x, y)))
-        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 30)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -215,7 +215,7 @@ class boss_gs(gs):
 
 class death_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "You died...",
@@ -289,7 +289,7 @@ class boss_death_gs(gs):
 
 class victory_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "/skip", "/skip", "/skip", "/skip",
