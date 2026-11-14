@@ -14,7 +14,7 @@ class gs:
 
 class menu_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "Hallowtale",
@@ -136,17 +136,17 @@ class boss_gs(gs):
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, (17, 2))
         self.mini_bosses = [
-            mini_boss(self.floor, (17, 4)),
-            mini_boss(self.floor, (17, 5)),
-            mini_boss(self.floor, (17, 6)),
+            mini_boss(self.floor, (17, 4), (255, 155, 155)),
+            mini_boss(self.floor, (17, 5), (155, 255, 155)),
+            mini_boss(self.floor, (17, 6), (155, 155, 255)),
         ]
         self.items = item.item_list
         item.item_list.clear()
         for _ in range(20):
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(self.floor, x, y))
-        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
+            self.items.append(item(self.floor, (x, y)))
+        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 30)
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -166,7 +166,7 @@ class boss_gs(gs):
         self.heart.update(dt, self.floor)
         self.boss.update(dt, self.floor, self.heart)
         for m in self.mini_bosses:
-            m.update(dt, self.floor, self.heart)
+            m.update(dt, self.floor, self.boss, self.heart)
         self.floor.update(dt)
         n_items = len(self.items)
         for i in self.items[:]:
@@ -174,7 +174,7 @@ class boss_gs(gs):
         if len(self.items) < n_items:
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(self.floor, x, y))
+            self.items.append(item(self.floor, (x, y)))
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -183,9 +183,9 @@ class boss_gs(gs):
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
             "Boss Markov Accuracy: " + self.boss.markov.format_accuracy(),
-            "Miniboss 1 Markov Accuracy: " + self.mini_bosses[0].markov.format_accuracy(),
-            "Miniboss 2 Markov Accuracy: " + self.mini_bosses[1].markov.format_accuracy(),
-            "Miniboss 3 Markov Accuracy: " + self.mini_bosses[2].markov.format_accuracy(),
+            "Miniboss R state: " + self.mini_bosses[0].state,
+            "Miniboss G state: " + self.mini_bosses[1].state,
+            "Miniboss B state: " + self.mini_bosses[2].state,
         ]
         if self.heart.health <= 0:
             return death_gs()
@@ -197,7 +197,7 @@ class boss_gs(gs):
         for i in self.items[:]:
             i.draw(surface)
         for m in self.mini_bosses:
-                    m.draw(surface, self.floor, self.debug_mode)
+            m.draw(surface, self.floor, self.debug_mode)
         self.boss.draw(surface, self.floor, self.debug_mode)
         self.heart.draw(surface)
         # Stats
@@ -215,7 +215,7 @@ class boss_gs(gs):
 
 class death_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "You died...",
@@ -287,7 +287,7 @@ class boss_death_gs(gs):
 
 class victory_gs(gs):
     def __init__(self):
-        self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
+        self.font = pygame.font.Font("hallowtale/assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "/skip", "/skip", "/skip", "/skip",

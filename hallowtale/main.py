@@ -35,6 +35,7 @@ async def main():
         current_state.draw(surface)
         pygame.display.flip()
         await asyncio.sleep(0)
+
     pygame.quit()
 
 asyncio.run(main())

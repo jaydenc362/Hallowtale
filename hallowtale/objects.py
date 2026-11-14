@@ -93,6 +93,10 @@ class floor:
         return xytuple[0] >= self.dimensions[0] or xytuple[0] < 0 or xytuple[1] >= self.dimensions[1] or xytuple[1] < 0
     def tile_to_value(self, xytuple):
         return self.grid[xytuple[0]][xytuple[1]]
+    def manhattan_distance(self, xytuple1, xytuple2):
+        x = abs(xytuple2[0] - xytuple1[0])
+        y = abs(xytuple2[1] - xytuple1[1])
+        return x + y
     def update(self, dt):
         for x in range(self.dimensions[0]):
             for y in range(self.dimensions[1]):
@@ -351,36 +355,38 @@ class boss:
         surface.blit(scaled_image, draw_position)
 
 class mini_boss:
-    def __init__(self, floor, xytuple):
+    def __init__(self, floor, xytuple, color):
         self.width, self.height = floor.tile_width, floor.tile_height
         self.current_tile = xytuple
         self.target_tile = self.current_tile
         self.position = floor.tile_to_position(self.current_tile)
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-        self.health = 100
+        self.color = color
         self.base_speed = 200
         self.speed = self.base_speed
         self.moving = False
         self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
         if self.path:
             self.path.pop(0)
-        self.markov = markov_first_order()
-        self.n_moves_ahead = 1
         self.timer = 0
         self.sine = math.sin(self.timer)
         self.on_cooldown = False
         self.cooldown_time = 2
         self.cooldown_timer = 0
+        self.state = "wander"
     def follow_path(self, dt, floor, heart):
-        # Update path
+        # Update path if necessary
         if not self.path:
-            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
-            if predicted_tile is not None:
-                self.target_tile = predicted_tile
-                self.markov.record_prediction(
-                    predicted_tile,
-                    self.n_moves_ahead
-                )
+            if self.state == "wander":
+                x = random.randint(0, floor.dimensions[0] - 1)
+                y = random.randint(0, floor.dimensions[1] - 1)
+                self.target_tile = (x, y)
+            elif self.state == "attack":
+                self.target_tile = heart.current_tile
+                self.base_speed = 200
+            elif self.state == "super_attack":
+                self.target_tile = heart.current_tile
+                self.base_speed = 400
             self.path = astar_path(floor.grid, self.current_tile, self.target_tile)
             if self.path:
                 self.path.pop(0)
@@ -394,13 +400,13 @@ class mini_boss:
         if distance.length() <= step:
             self.position = pygame.Vector2(target)
             self.current_tile = next_tile
-            predicted_tile = self.markov.predict_heart_n_tiles_ahead(heart, floor, self.n_moves_ahead)
-            if predicted_tile is not None:
-                self.target_tile = predicted_tile
-                self.markov.record_prediction(
-                    predicted_tile,
-                    self.n_moves_ahead
-                )
+            # Update path if wanted
+            if self.state == "attack":
+                self.target_tile = heart.current_tile
+                self.base_speed = 200
+            elif self.state == "super_attack":
+                self.target_tile = heart.current_tile
+                self.base_speed = 400
             self.path = astar_path(floor.grid, next_tile, self.target_tile)
             if self.path:
                 self.path.pop(0)
@@ -416,19 +422,18 @@ class mini_boss:
         if heart.current_tile == self.current_tile:
             self.on_cooldown = True
             heart.health -= 1
-    def update(self, dt, floor, heart):
+    def update(self, dt, floor, boss, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
         self.speed = self.base_speed / math.sqrt(floor.tile_to_value(self.current_tile))
         # FSM logic for each state
-        if self.health >= 70:
-            self.n_moves_ahead = 3
-        elif self.health >= 30:
-            self.n_moves_ahead = 2
+        if floor.manhattan_distance(self.current_tile, heart.current_tile) >= 7:
+            self.state = "wander"
         else:
-            self.n_moves_ahead = 1
+            self.state = "attack"
+        if boss.health < 30:
+            self.state = "super_attack"
         # FSM logic for all states
-        self.markov.update(heart)
         self.follow_path(dt, floor, heart)
         self.rect.topleft = self.position
         self.damage_player(dt, heart)
@@ -436,7 +441,7 @@ class mini_boss:
         # Target highlight
         if debug_mode:
             target_tile_grid_tile = floor.grid_tiles[self.target_tile[0]][self.target_tile[1]]
-            target_tile_grid_tile.draw_target_highlight(surface, (255, 255, 255))
+            target_tile_grid_tile.draw_target_highlight(surface, self.color)
         # Boss
         image = assets.images["mini_boss"]
         draw_width = self.width * 518 / 482
@@ -552,9 +557,9 @@ class markov_first_order:
 
 class item:
     item_list = []
-    def __init__(self, floor, x, y):
-        self.position = pygame.Vector2(x * floor.tile_width, y * floor.tile_height)
-        self.tile = (x, y)
+    def __init__(self, floor, xytuple):
+        self.position = pygame.Vector2(xytuple[0] * floor.tile_width, xytuple[1] * floor.tile_height)
+        self.tile = xytuple
         self.width, self.height = floor.tile_width, floor.tile_height
         self.types = [
             "heal_player",
