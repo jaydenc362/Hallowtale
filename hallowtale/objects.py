@@ -323,6 +323,7 @@ class boss:
             if heart.current_tile == tile:
                 self.on_cooldown = True
                 heart.health -= 1
+                assets.sounds["player_hurt"].play()
                 break
     def update(self, dt, floor, heart):
         self.timer += dt * 4
@@ -440,6 +441,7 @@ class mini_boss:
         if heart.current_tile == self.current_tile:
             self.on_cooldown = True
             heart.health -= 1
+            assets.sounds["player_hurt"].play()
     def update(self, dt, floor, boss, heart):
         self.timer += dt * 4
         self.sine = math.sin(self.timer)
@@ -613,14 +615,19 @@ class item:
             self.item_list.remove(self)
             if self.type == "heal_player":
                 heart.health += 1
+                assets.sounds["player_healed"].play()
             elif self.type == "damage_boss":
                 boss.health = max(0, boss.health - 3)
+                assets.sounds["boss_hurt"].play()
             elif self.type == "damage_boss_big":
                 boss.health = max(0, boss.health - 10)
+                assets.sounds["boss_hurt"].play()
             elif self.type == "damage_player":
                 heart.health = max(0, heart.health - 1)
+                assets.sounds["player_hurt"].play()
             elif self.type == "damage_player_big":
                 heart.health = max(0, heart.health - 3)
+                assets.sounds["player_hurt"].play()
     def update(self, dt, heart, boss):
         self.timer += dt * 3
         self.sine = math.sin(self.timer)

@@ -27,6 +27,7 @@ class menu_gs(gs):
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        pygame.mixer.stop()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -62,6 +63,8 @@ class entrance_gs(gs):
         self.player = player()
         self.door = door()
         self.camera = camera(self.player)
+        pygame.mixer.stop()
+        assets.sounds["intro"].play()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -81,6 +84,7 @@ class entrance_gs(gs):
         self.camera.update()
         self.door.update()
         if self.door.enter(self.player):
+            assets.sounds["intro"].play()
             return transition_gs()
     def draw(self, surface):
         surface.fill((0, 0, 0))
@@ -101,6 +105,9 @@ class transition_gs(gs):
         )
         self.heart_target_position = pygame.Vector2(0, HEIGHT - self.heart_height)
         self.finished = False
+        pygame.mixer.stop()
+        assets.sounds["door"].play()
+        assets.sounds["start"].play()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -154,6 +161,7 @@ class boss_gs(gs):
         self.log_color = (255, 255, 255)
         self.log_offset = 30
         self.debug_mode = False
+        pygame.mixer.stop()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -229,15 +237,14 @@ class death_gs(gs):
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        pygame.mixer.stop()
         assets.sounds["death"].play()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    pygame.mixer.stop()
                     return entrance_gs()
                 elif event.key == pygame.K_ESCAPE:
-                    pygame.mixer.stop()
                     return menu_gs()
         return self
     def update(self, dt):
@@ -267,17 +274,27 @@ class death_gs(gs):
 class boss_death_gs(gs):
     def __init__(self):
         self.timer = 0
-        self.time = 3
+        self.time = 5
         self.image = "boss"
         self.position = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
+        self.sound_index = 0
+        pygame.mixer.stop()
     def update(self, dt):
         self.timer += dt
         if self.timer >= self.time:
             return victory_gs()
-        if self.timer >= 1.5:
+        # Image
+        if self.timer >= 3:
+            if self.sound_index == 1:
+                assets.sounds["victory"].play()
+            self.sound_index = 2
+        elif self.timer >= 1.5:
             self.image = "boss_dead"
         elif self.timer >= 1:
             self.image = "boss_slashed"
+            if self.sound_index == 0:
+                assets.sounds["heavy"].play()
+            self.sound_index = 1
     def draw(self, surface):
         image = assets.images[self.image]
         scaled_image = pygame.transform.scale(image, (587, 425))
@@ -300,6 +317,7 @@ class victory_gs(gs):
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        pygame.mixer.stop()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -314,6 +332,8 @@ class victory_gs(gs):
         if self.log_timer >= self.log_time:
             self.log_timer = 0
             self.log_index = min(self.log_index + 1, len(self.log) - 1)
+            if self.log_index == 1:
+                assets.sounds["intro"].play()
             while self.log_index < len(self.log) - 1 and self.log[self.log_index] == "":
                 self.log_index += 1
     def draw(self, surface):
