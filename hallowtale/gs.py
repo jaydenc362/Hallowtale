@@ -20,7 +20,9 @@ class menu_gs(gs):
             "Hallowtale",
             "By Jayden Chan",
             "",
-            "[ Enter ] >> Entrance",
+            "[ enter ] >> Entrance",
+            "[ r ] >> More Rewards",
+            "[ h ] >> More Hazards",
         ]
         self.log_time = 1
         self.log_timer = 0
@@ -28,11 +30,19 @@ class menu_gs(gs):
         self.log_offset = 30
         self.log_color = (255, 255, 255)
         pygame.mixer.stop()
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load("assets/sounds/premonition.ogg")
+        pygame.mixer.music.set_volume(0.4)
+        pygame.mixer.music.play(-1)
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    return entrance_gs()
+                    return entrance_gs("normal")
+                elif event.key == pygame.K_r:
+                    return entrance_gs("easy")
+                elif event.key == pygame.K_h:
+                    return entrance_gs("hard")
         return self
     def update(self, dt):
         if self.log[self.log_index] == "/skip":
@@ -59,11 +69,13 @@ class menu_gs(gs):
             j += 1
 
 class entrance_gs(gs):
-    def __init__(self):
+    def __init__(self, difficulty):
         self.player = player()
         self.door = door()
         self.camera = camera(self.player)
+        self.difficulty = difficulty
         pygame.mixer.stop()
+        pygame.mixer.music.stop()
         assets.sounds["intro"].play()
     def handle_events(self, events):
         for event in events:
@@ -85,14 +97,14 @@ class entrance_gs(gs):
         self.door.update()
         if self.door.enter(self.player):
             assets.sounds["intro"].play()
-            return transition_gs()
+            return transition_gs(self.difficulty)
     def draw(self, surface):
         surface.fill((0, 0, 0))
         self.door.draw(surface, self.camera)
         self.player.draw(surface, self.camera)
         
 class transition_gs(gs):
-    def __init__(self):
+    def __init__(self, difficulty):
         self.heart_width, self.heart_height = 30, 30
         self.heart_speed = 2000
         self.flicker_time = 0.1
@@ -105,7 +117,9 @@ class transition_gs(gs):
         )
         self.heart_target_position = pygame.Vector2(0, HEIGHT - self.heart_height)
         self.finished = False
+        self.difficulty = difficulty
         pygame.mixer.stop()
+        pygame.mixer.music.stop()
         assets.sounds["door"].play()
         assets.sounds["start"].play()
     def handle_events(self, events):
@@ -130,7 +144,7 @@ class transition_gs(gs):
         if self.flicker_count <= 0:
             self.move_heart(dt)
         if self.finished:
-            return boss_gs()
+            return boss_gs(self.difficulty)
     def draw(self, surface):
         if self.flicker_count % 2 == 0:
             image = assets.images["heart"]
@@ -138,7 +152,8 @@ class transition_gs(gs):
             surface.blit(scaled_image, self.heart_position)
 
 class boss_gs(gs):
-    def __init__(self):
+    def __init__(self, difficulty):
+        self.difficulty = difficulty
         self.floor = floor()
         self.heart = heart(self.floor)
         self.boss = boss(self.floor, (17, 2))
@@ -149,10 +164,13 @@ class boss_gs(gs):
         ]
         self.items = item.item_list
         item.item_list.clear()
-        for _ in range(20):
+        n_items = 20
+        if self.difficulty == "hard":
+            n_items = 60
+        for _ in range(n_items):
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(self.floor, (x, y)))
+            self.items.append(item(self.floor, (x, y), self.difficulty))
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 30)
         self.log = [
             "Player Health: " + str(self.heart.health),
@@ -162,10 +180,14 @@ class boss_gs(gs):
         self.log_offset = 30
         self.debug_mode = False
         pygame.mixer.stop()
+        pygame.mixer.music.load("assets/sounds/ghost_fight.ogg")
+        pygame.mixer.music.set_volume(0.4)
+        pygame.mixer.music.play(-1)
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    pygame.mixer.music.stop()
                     return menu_gs()
                 elif event.key == pygame.K_F1 or event.key == pygame.K_TAB:
                     self.debug_mode = not self.debug_mode
@@ -182,7 +204,7 @@ class boss_gs(gs):
         if len(self.items) < n_items:
             x = random.randint(0, self.floor.dimensions[0] - 1)
             y = random.randint(0, self.floor.dimensions[1] - 1)
-            self.items.append(item(self.floor, (x, y)))
+            self.items.append(item(self.floor, (x, y), self.difficulty))
         self.log = [
             "Player Health: " + str(self.heart.health),
             "Boss Health: " + str(self.boss.health),
@@ -196,7 +218,7 @@ class boss_gs(gs):
             "Miniboss B state: " + self.mini_bosses[2].state,
         ]
         if self.heart.health <= 0:
-            return death_gs()
+            return death_gs(self.difficulty)
         if self.boss.health <= 0:
             return boss_death_gs()
     def draw(self, surface):
@@ -222,28 +244,30 @@ class boss_gs(gs):
                 surface.blit(text_surface, text_position)
 
 class death_gs(gs):
-    def __init__(self):
+    def __init__(self, difficulty):
         self.font = pygame.font.Font("assets/fonts/upheavtt.ttf", 100)
         self.log = [
             "/pause",
             "You died...",
             "Stay determined!",
             "/skip",
-            "[ Enter ] >> Entrance",
-            "[ Esc ] >> Menu",
+            "[ enter ] >> Entrance",
+            "[ esc ] >> Menu",
         ]
         self.log_time = 1
         self.log_timer = 0
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        self.difficulty = difficulty
         pygame.mixer.stop()
+        pygame.mixer.music.stop()
         assets.sounds["death"].play()
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    return entrance_gs()
+                    return entrance_gs(self.difficulty)
                 elif event.key == pygame.K_ESCAPE:
                     return menu_gs()
         return self
@@ -278,6 +302,7 @@ class boss_death_gs(gs):
         self.image = "boss"
         self.position = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
         self.sound_index = 0
+        pygame.mixer.music.stop()
         pygame.mixer.stop()
     def update(self, dt):
         self.timer += dt
@@ -317,6 +342,7 @@ class victory_gs(gs):
         self.log_index = 0
         self.log_offset = 30
         self.log_color = (255, 255, 255)
+        pygame.mixer.music.stop()
         pygame.mixer.stop()
     def handle_events(self, events):
         for event in events:

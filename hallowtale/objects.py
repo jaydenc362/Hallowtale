@@ -594,7 +594,7 @@ class markov_first_order:
 
 class item:
     item_list = []
-    def __init__(self, floor, xytuple):
+    def __init__(self, floor, xytuple, difficulty):
         self.position = pygame.Vector2(xytuple[0] * floor.tile_width, xytuple[1] * floor.tile_height)
         self.tile = xytuple
         self.width, self.height = floor.tile_width, floor.tile_height
@@ -606,6 +606,10 @@ class item:
             "damage_player_big",
         ]
         self.type_weights = [4, 7, 1, 4, 1]
+        if difficulty == "easy":
+            self.type_weights = [5, 1, 5, 1, 1]
+        elif difficulty == "hard":
+            self.type_weights = [1, 1, 1, 5, 5]
         self.type = random.choices(self.types, self.type_weights)[0]
         self.timer = floor.grid_tiles[self.tile[0]][self.tile[1]].timer
         self.sine = math.sin(self.timer)

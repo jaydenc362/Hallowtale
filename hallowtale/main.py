@@ -12,7 +12,7 @@ clock = pygame.time.Clock()
 
 async def main():
     # Game loop setup
-    current_state = gs.boss_death_gs()
+    current_state = gs.menu_gs()
 
     # Game loop
     running = True
