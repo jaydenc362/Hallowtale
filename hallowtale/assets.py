@@ -33,4 +33,5 @@ def load_assets():
     sounds["select"] = pygame.mixer.Sound("assets/sounds/select.ogg")
     sounds["start"] = pygame.mixer.Sound("assets/sounds/start.ogg")
     sounds["victory"] = pygame.mixer.Sound("assets/sounds/victory.ogg")
-    sounds["death"].set_volume(1)
+    for s in sounds.values():
+        s.set_volume(0.4)

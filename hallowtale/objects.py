@@ -57,12 +57,12 @@ class door:
         self.position = pygame.Vector2(-140, -500)
         self.width, self.height = 1083 / 3, 833 / 3
         self.rect = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-        self.space_was_held = False
+        self.key_was_held = False
     def enter(self, player):
         keys = pygame.key.get_pressed()
-        space_held = keys[pygame.K_SPACE]
-        entered = self.rect.colliderect(player.rect) and space_held and not self.space_was_held
-        self.space_was_held = space_held
+        key_held = keys[pygame.K_RETURN] or keys[pygame.K_z] or keys[pygame.K_SPACE]
+        entered = self.rect.colliderect(player.rect) and key_held and not self.key_was_held
+        self.key_was_held = key_held
         return entered
     def update(self):
         self.rect.topleft = self.position

@@ -1,5 +1,5 @@
 import pygame, assets, random
-from objects import player, door, camera, floor, heart, boss, mini_boss, item
+from objects import camera, player, door, floor, heart, boss, mini_boss, item
 
 # Game state setup
 WIDTH, HEIGHT = 1280, 960
